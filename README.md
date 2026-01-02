@@ -115,8 +115,13 @@ Icon+text. This will appear immediately. Display important messages. For example
 
 ![alert screens](media/they_rang.jpg)
 
+# Icons:
+
 I have implemented many icons in the EspHome yaml file. You can delete or add other icons at any time. You can find the icons here: https://developer.lametric.com/icons
 
+# Fonts: When installing, pay attention to the correct path to the fonts! (In my configuration it is EspHoMaTriX64/fonts)
+
+Users will need to manually download the fonts folder from the repo and copy it to their own ESPHome folder.
 I also included some fonts. My favorite is the MatrixChunky fonts. I am Hungarian. English letters are fine, but you would not believe how long it took to find normal accented letters. The accented letters are shifted.
 
 ![progress screens](media/letter_problems.jpg)
