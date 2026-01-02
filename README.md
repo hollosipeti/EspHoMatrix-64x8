@@ -37,7 +37,7 @@ I am Hungarian, there are Hungarian language parts in the repo.
 
 I will have this display on top of my kitchen cabinet. That's why I don't have any buttons. There's nothing else but the display and a photoresistor for automatic brightness adjustment.
 
-I use an LED matrix like this.
+I use an LED matrix like this. Two pieces.
 
 ![matrix](media/led_matrix.png)
 
