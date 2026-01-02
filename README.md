@@ -3,6 +3,8 @@
 
 WARNING! THIS IS A BETA VERSION, BUGS MAY OCCUR. I WILL FIX THEM AS I CAN, BUT I DO NOT WORK ON THE CODE CONSTANTLY.
 
+My matrix is ​​in a "serpentine" layout. If someone has a different type of matrix (e.g. Z-shaped), they will have to rewrite!
+
 I tested the repo and it works.
 
 ## What everyone needs to set up for themselves:
