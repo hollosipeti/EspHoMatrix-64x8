@@ -1,10 +1,22 @@
 # EspHoMatrix-64x8
 Modified version of the [EspHoMaTriXv2](https://github.com/lubeda/EspHoMaTriXv2) library, specifically designed for **64x8 pixel LED matrices** (like Ulanzi TC001 custom mods or DIY panels).
 
+WARNING! THIS IS A BETA VERSION, BUGS MAY OCCUR. I WILL FIX THEM AS I CAN, BUT I DO NOT WORK ON THE CODE CONSTANTLY.
+
+The latest EspHome version and ESP-IDF are used today. 2026.01.02.
+
+I am Hungarian, there are Hungarian language parts in the repo.
+
 NEW FEATURES:
 
 - INCREASED DISPLAY SIZE 8X64
 - MODE_ICON_DATE_TIME
+
+This is the new ICON_DATE_TIME screen. This is the default for me.
+![default](media/icon_date_time_screen.jpg)
+
+If there is no individual information, then this is what is displayed basically. Date/time, indoor temperature/humidity, weather, outdoor temperature, outdoor humidity, and wind.
+![default screens](media/default display.mov)
 
 MODIFICATIONS:
 
@@ -26,6 +38,8 @@ REMOVED ITEMS:
 - LCINDICATOR
 - ICINDICATOR
 - GRAPH_SCREEN
+
+
 
 Credits
 Original library by LuBeDa. https://github.com/lubeda/EspHoMaTriXv2
