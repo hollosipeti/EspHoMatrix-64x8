@@ -1,2 +1,33 @@
 # EspHoMatrix-64x8
 Modified version of the [EspHoMaTriXv2](https://github.com/lubeda/EspHoMaTriXv2) library, specifically designed for **64x8 pixel LED matrices** (like Ulanzi TC001 custom mods or DIY panels).
+
+NEW FEATURES:
+
+- INCREASED DISPLAY SIZE 8X64
+- MODE_ICON_DATE_TIME
+
+MODIFICATIONS:
+
+- MOVE GAUGE TO RIGHT SIDE
+- MOVE THE R INDICATORS BEFORE THE GAUGE. SIZE 1-3
+- DISABLE FIRE SCREEN
+- I CHANGED THE SCREEN TIME CALCULATION IN ICON TEXT SCREEN AND RAINBOW ICON TEXT SCREEN MODE
+
+REMOVED ITEMS:
+
+- MODE_BITMAP_SCREEN
+- MODE_BITMAP_STACK_SCREEN
+- MODE_BITMAP_SMALL
+- MODE_RAINBOW_BITMAP_SMALL
+- RAINBOW_CLOCK
+- RAINBOW_DATE
+- COLOR_GAUGE
+- RCINDICATOR
+- LCINDICATOR
+- ICINDICATOR
+- GRAPH_SCREEN
+
+Credits
+Original library by LuBeDa. https://github.com/lubeda/EspHoMaTriXv2
+
+Modified by [hollosipeti].
