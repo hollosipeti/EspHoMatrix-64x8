@@ -60,8 +60,8 @@ If there is no individual information, then this is what is displayed basically.
 
 ## MODIFICATIONS:
 
-- MOVE GAUGE TO RIGHT SIDE
-- MOVE THE R INDICATORS BEFORE THE GAUGE. SIZE 1-3
+- I MOVED GAUGE TO RIGHT SIDE
+- I MOVED THE INDICATORS LEFT TO THE GAUGE. THE SIZE OF THE INDICATORS CAN BE BETWEEN 1-3.
 
 The GAUGE has moved to the right edge. It does not interfere with the text, icons or indicators. The indicators will appear in front of the gauge.
 All indicators (that I left) are enabled. The rightmost indicators do not interfere with the text display at all.
@@ -69,7 +69,7 @@ All indicators (that I left) are enabled. The rightmost indicators do not interf
 <img src="media/show_gauge_show_lindicators.jpg" width="25%">
 
 - DISABLE FIRE SCREEN
-- I CHANGED THE SCREEN TIME CALCULATION IN ICON TEXT SCREEN AND RAINBOW ICON TEXT SCREEN MODE
+- I CHANGED THE SCREEN TIME CALCULATION, IN ICON TEXT SCREEN AND RAINBOW ICON TEXT SCREEN MODE
 
 ## REMOVED ITEMS:
 
@@ -111,7 +111,7 @@ Icon+text+progress bar. For example, we can display battery charge or some other
 
 
 ## Alert_screen.
-Icon+text. This will appear immediately. Display important messages. For example, ringing, things like that.
+Icon+text. This will appear immediately. It displays important messages. For example, ringing, things like that.
 
 ![alert screens](media/they_rang.jpg)
 
