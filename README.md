@@ -13,6 +13,10 @@ I use an LED matrix like this.
 
 ![matrix](media/led_matrix.png)
 
+Here is the wiring diagram. Use a good, reliable power supply! I don't use the brightness at 100%. I haven't measured how much current it draws yet.
+
+![schematics](media/schematics.png)
+
 NEW FEATURES:
 
 - INCREASED DISPLAY SIZE 8X64
@@ -52,8 +56,33 @@ REMOVED ITEMS:
 - LCINDICATOR
 - ICINDICATOR
 - GRAPH_SCREEN
+- FIRE SCREEN
+
+Some examples:
+
+Normal text_screen. There is only text here.
+
+![text screens](media/text_screen.gif)
 
 
+
+Icon_screen. Icon+text. For longer text, the icon remains in place even if you have to scroll. It is always visible.
+The only difference between icon_screen and icon_text_screen is that in icon_text_screen, when the text reaches the icon, the icon is flipped (disappears)
+
+![icon screens](media/icon_screen.gif)
+
+
+
+Text_screen_progress. Icon+text+progress bar. For example, we can display battery charge or some other process.
+
+![progress screens](media/text_screen_progress1.jpg)
+![progress screens](media/text_screen_progress2.jpg)
+
+I have implemented many icons in the EspHome yaml file. You can delete or add other icons at any time. You can find the icons here: https://developer.lametric.com/icons
+
+I also included some fonts. My favorite is the MatrixChunky fonts. I am Hungarian. English letters are fine, but you would not believe how long it took to find normal accented letters.
+
+I'm not a programmer, just an enthusiastic amateur. :) If you have any ideas on how to improve this project, please let me know.
 
 Credits
 Original library by LuBeDa. https://github.com/lubeda/EspHoMaTriXv2
