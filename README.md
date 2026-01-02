@@ -3,6 +3,23 @@ Modified version of the [EspHoMaTriXv2](https://github.com/lubeda/EspHoMaTriXv2)
 
 WARNING! THIS IS A BETA VERSION, BUGS MAY OCCUR. I WILL FIX THEM AS I CAN, BUT I DO NOT WORK ON THE CODE CONSTANTLY.
 
+I tested the repo and it works.
+What everyone needs to set up for themselves:
+
+wifi:
+  networks:
+  - ssid: !secret wifi_ssid_1
+    password: !secret wifi_password
+  - ssid: !secret wifi_ssid_2
+    password: !secret wifi_password
+
+  manual_ip:  #if you want
+    static_ip: 192.168.xxx.xxx
+    gateway: 192.168.xxx.xxx
+    subnet: 255.255.255.0
+    dns1: 8.8.8.8    #if you want
+    dns2: 8.8.4.4    #if you want
+
 The latest EspHome version and ESP-IDF are used today. 2026.01.02.
 
 I am Hungarian, there are Hungarian language parts in the repo.
