@@ -250,13 +250,13 @@ sensor:
 
 #mateine 14/7, arial 8/7, MatrixChunky6.ttf  6/7
 font:
-  - file: EspHoMaTriX64/fonts/MatrixChunky6.ttf
+  - file: fonts/MatrixChunky6.ttf
     id: default_font
     size: 6
     glyphs: |-
        !?"%()+*=,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyzÁÉÍÓÖŐÚÜŰáéíóöőúüű@<>ß€/
 
-  - file: EspHoMaTriX64/fonts/Silkscreen-Regular.ttf
+  - file: fonts/Silkscreen-Regular.ttf
     id: special_font
     size: 8
     glyphs: |-
