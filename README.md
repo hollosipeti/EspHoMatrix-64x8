@@ -1,5 +1,5 @@
 # EspHoMatrix-64x8
-## Modified version of the [EspHoMaTriXv2](https://github.com/lubeda/EspHoMaTriXv2) library, specifically designed for **64x8 pixel LED matrices** (like Ulanzi TC001 custom mods or DIY panels).
+## Modified version of the [EspHoMaTriXv2](https://github.com/lubeda/EspHoMaTriXv2) library, specifically designed for 64x8 pixel LED matrix (like Ulanzi TC001 custom mods or DIY panels).
 
 WARNING! THIS IS A BETA VERSION, BUGS MAY OCCUR. I WILL FIX THEM AS I CAN, BUT I DO NOT WORK ON THE CODE CONSTANTLY.
 
