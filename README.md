@@ -8,6 +8,12 @@ I tested the repo and it works.
 ## What everyone needs to set up for themselves:
 
 ```yaml
+# Enable OTA
+ota:
+  - platform: esphome
+    password: !secret ota_password
+ 
+# WI-FI setup
 wifi:
   networks:
   - ssid: !secret wifi_ssid_1
