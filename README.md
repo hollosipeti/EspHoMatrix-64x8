@@ -7,21 +7,35 @@ The latest EspHome version and ESP-IDF are used today. 2026.01.02.
 
 I am Hungarian, there are Hungarian language parts in the repo.
 
+I will have this display on top of my kitchen cabinet. That's why I don't have any buttons. There's nothing else but the display and a photoresistor for automatic brightness adjustment.
+
+I use an LED matrix like this.
+
+![matrix](media/led_matrix.png)
+
 NEW FEATURES:
 
 - INCREASED DISPLAY SIZE 8X64
 - MODE_ICON_DATE_TIME
 
 This is the new ICON_DATE_TIME screen. This is the default for me.
+
 ![default](media/icon_date_time_screen.jpg)
 
 If there is no individual information, then this is what is displayed basically. Date/time, indoor temperature/humidity, weather, outdoor temperature, outdoor humidity, and wind.
-![default screens](media/default display.mov)
+
+![default screens](media/default_display.gif)
 
 MODIFICATIONS:
 
 - MOVE GAUGE TO RIGHT SIDE
 - MOVE THE R INDICATORS BEFORE THE GAUGE. SIZE 1-3
+
+The GAUGE has moved to the right edge. It does not interfere with the text, icons or indicators. The indicators will appear in front of the gauge.
+All indicators (that I left) are enabled. The rightmost indicators do not interfere with the text display at all.
+
+<img src="media/show_gauge_show_lindicators.jpg" width="25%">
+
 - DISABLE FIRE SCREEN
 - I CHANGED THE SCREEN TIME CALCULATION IN ICON TEXT SCREEN AND RAINBOW ICON TEXT SCREEN MODE
 
