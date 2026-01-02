@@ -78,13 +78,18 @@ Text_screen_progress. Icon+text+progress bar. For example, we can display batter
 ![progress screens](media/text_screen_progress1.jpg)
 ![progress screens](media/text_screen_progress2.jpg)
 
+
+Alert_screen. Icon+text. This will appear immediately. Display important messages. For example, ringing, things like that.
+
+![alert screens](media/they_rang.jpg)
+
 I have implemented many icons in the EspHome yaml file. You can delete or add other icons at any time. You can find the icons here: https://developer.lametric.com/icons
 
-I also included some fonts. My favorite is the MatrixChunky fonts. I am Hungarian. English letters are fine, but you would not believe how long it took to find normal accented letters.
+I also included some fonts. My favorite is the MatrixChunky fonts. I am Hungarian. English letters are fine, but you would not believe how long it took to find normal accented letters. The accented letters are shifted.
+
+![progress screens](media/letter_problems.jpg)
 
 I'm not a programmer, just an enthusiastic amateur. :) If you have any ideas on how to improve this project, please let me know.
-
-Credits
 Original library by LuBeDa. https://github.com/lubeda/EspHoMaTriXv2
 
 Modified by [hollosipeti].
