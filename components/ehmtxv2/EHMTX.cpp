@@ -598,6 +598,11 @@ namespace esphome
 #endif
 
     ESP_LOGD(TAG, "Setup and running!");
+
+    // --- végső kijelző törlés boot után ---
+    if (this->display != nullptr) {
+      this->display->clear();   // <<< IDE
+    }
   }
 
   void EHMTX::set_clock_color(int32_t r, int32_t g, int32_t b)
