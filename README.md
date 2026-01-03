@@ -1,10 +1,6 @@
 # EspHoMatrix-64x8
 ## Modified version of the [EspHoMaTriXv2](https://github.com/lubeda/EspHoMaTriXv2) library, specifically designed for 64x8 pixel LED matrix (like Ulanzi TC001, AWTRIX...).
 
-My matrix is ​​in a "serpentine" layout. If someone has a different type of matrix (e.g. Z-shaped), they will have to rewrite!
-
-I tested the repo and it works.
-
 ## What everyone needs to set up for themselves:
 
 ```yaml
@@ -29,13 +25,13 @@ wifi:
     dns2: 8.8.4.4    #if you want
 
 ```
-The latest EspHome version and ESP-IDF are used today. 2026.01.02.
+The latest EspHome version and ESP-IDF are used today. 03. Jan. 2026.
 
 I am Hungarian, there are Hungarian language parts in the repo.
 
 I will have this display on top of my kitchen cabinet. That's why I don't have any buttons. There's nothing else but the display and a photoresistor for automatic brightness adjustment.
 
-I use an LED matrix like this. Two pieces.
+I use an LED matrix like this. Two pieces. My matrix is ​​in a "serpentine" layout. If someone has a different type of matrix (e.g. Z-shaped), they will have to rewrite!
 
 ![matrix](media/led_matrix.png)
 
