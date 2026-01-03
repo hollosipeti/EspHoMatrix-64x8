@@ -1100,7 +1100,7 @@ namespace esphome
       // 8 - Kék
       this->display->print(37, 0, this->default_font, Color(0, 0, 255), "8");
       // x - Lila
-      this->display->print(43, 0, this->default_font, Color(128, 0, 128), "X");
+      this->display->print(43, 0, this->default_font, Color(128, 0, 128), "x");
       // 6 - Magenta
       this->display->print(49, 0, this->default_font, Color(255, 0, 255), "6");
       // 4 - Fehér
