@@ -1062,50 +1062,63 @@ namespace esphome
 
       // blend handling
 #ifdef EHMTXv2_BLEND_STEPS
-      if ((this->ticks_ <= EHMTXv2_BLEND_STEPS) && (this->brightness_ >= 50) && (this->queue_count() > 1))
-      {
-        uint8_t b = this->brightness_;
-        uint8_t current_step = ((b - 50) / 205) * (EHMTXv2_BLEND_STEPS - EHMTXv2_BLEND_STEPS / 2) + EHMTXv2_BLEND_STEPS / 2;
-        if (this->ticks_ <= current_step)
-        {
-          float br = std::lerp(0, (float)b / 255, (float)this->ticks_ / current_step);
-          this->display->get_light()->set_correction(br, br, br);
-        }
-      }
-      else
-#endif
-      {
-        if (this->brightness_ != this->target_brightness_)
-        {
-          this->brightness_ = this->brightness_ + (this->target_brightness_ < this->brightness_ ? -1 : 1);
-          float br = (float)this->brightness_ / (float)255;
-          this->display->get_light()->set_correction(br, br, br);
-        }
-      }
-      this->ticks_++;
+    // 1. BEMELEGÍTÉS: Az első 10 ciklusban (kb 0.5-1 mp) nem rajzolunk semmit,
+    // hogy a drivernek legyen ideje beállítani a forgatást és törölni a memóriát.
+    // Ha ezt kihagyod, akkor villanhat be a "fejjel lefelé" kép.
+    if (this->ticks_ < 15) {
+        this->ticks_++;
+        return;
+    }
+
+    if ((this->ticks_ <= EHMTXv2_BLEND_STEPS + 15) && (this->brightness_ >= 50) && (this->queue_count() > 1))
+    {
+       // ... (itt marad a fade-in logika változatlanul) ...
+       // Csak a ticks számítást kell eltolni a bemelegítés miatt (-15)
+       uint8_t effective_ticks = this->ticks_ - 15;
+       
+       uint8_t b = this->brightness_;
+       uint8_t current_step = ((b - 50) / 205) * (EHMTXv2_BLEND_STEPS - EHMTXv2_BLEND_STEPS / 2) + EHMTXv2_BLEND_STEPS / 2;
+       
+       if (effective_ticks <= current_step)
+       {
+         float br = std::lerp(0, (float)b / 255, (float)effective_ticks / current_step);
+         this->display->get_light()->set_correction(br, br, br);
+       }
     }
     else
+#endif
     {
-      // H - Piros
-      this->display->print(3, 0, this->default_font, Color(255, 0, 0), "H");
-      // O - Narancs
-      this->display->print(9, 0, this->default_font, Color(255, 165, 0), "O");
-      // L - Sárga
-      this->display->print(15, 0, this->default_font, Color(255, 255, 0), "L");
-      // L - Zöld
-      this->display->print(21, 0, this->default_font, Color(0, 255, 0), "L");
-      // Y - Cián
-      this->display->print(27, 0, this->default_font, Color(0, 255, 255), "Y");
-
-      // 8 - Kék
-      this->display->print(37, 0, this->default_font, Color(0, 0, 255), "8");
-      // x - Lila
-      this->display->print(43, 0, this->default_font, Color(128, 0, 128), "x");
-      // 6 - Magenta
-      this->display->print(49, 0, this->default_font, Color(255, 0, 255), "6");
-      // 4 - Fehér
-      this->display->print(55, 0, this->default_font, Color(255, 255, 255), "4");
+      if (this->brightness_ != this->target_brightness_)
+      {
+        this->brightness_ = this->brightness_ + (this->target_brightness_ < this->brightness_ ? -1 : 1);
+        float br = (float)this->brightness_ / (float)255;
+        this->display->get_light()->set_correction(br, br, br);
+      }
     }
+    
+    // --- RAJZOLÁS RÉSZ ---
+    
+    // 2. TÖRLÉS: Ez a legfontosabb a "krix-krax" ellen.
+    // Rajzolunk egy fekete téglalapot az egész kijelzőre, mielőtt írnánk.
+    // Így eltűnik a memória-szemét a betűk alól.
+    this->display->filled_rectangle(0, 0, 64, 8, Color(0, 0, 0));
+
+    // Most jöhet a szöveg (a korábbi 8x64-es koordinátákkal)
+    
+    // HOLLY
+    this->display->print(4, 1, this->default_font, Color(255, 0, 0), "H");
+    this->display->print(10, 1, this->default_font, Color(255, 165, 0), "O");
+    this->display->print(16, 1, this->default_font, Color(255, 255, 0), "L");
+    this->display->print(22, 1, this->default_font, Color(0, 255, 0), "L");
+    this->display->print(28, 1, this->default_font, Color(0, 255, 255), "Y");
+
+    // 8x64
+    this->display->print(38, 1, this->default_font, Color(0, 0, 255), "8");
+    this->display->print(44, 1, this->default_font, Color(128, 0, 128), "x");
+    this->display->print(50, 1, this->default_font, Color(255, 0, 255), "6");
+    this->display->print(56, 1, this->default_font, Color(255, 255, 255), "4");
+
+    this->ticks_++;
   }
 
   void EHMTX::skip_screen()
