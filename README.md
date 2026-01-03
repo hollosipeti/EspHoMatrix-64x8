@@ -58,10 +58,12 @@ If there is no individual information, then this is what is displayed basically.
 
 ![default screens](media/default_display.gif)
 
+# CHANGES TO THE ORIGINAL EspHoMaTriXv2 CODE:
 ## MODIFICATIONS:
 
 - I MOVED GAUGE TO RIGHT SIDE
 - I MOVED THE INDICATORS LEFT TO THE GAUGE. THE SIZE OF THE INDICATORS CAN BE BETWEEN 1-3.
+- CHANGE BOOT SCREEN
 
 The GAUGE has moved to the right edge. It does not interfere with the text, icons or indicators. The indicators will appear in front of the gauge.
 All indicators (that I left) are enabled. The rightmost indicators do not interfere with the text display at all.
@@ -86,7 +88,7 @@ All indicators (that I left) are enabled. The rightmost indicators do not interf
 - GRAPH_SCREEN
 - FIRE SCREEN
 
-## Some examples:
+# Some examples:
 
 ## Normal text_screen.
 There is only text here.
