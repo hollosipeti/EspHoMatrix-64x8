@@ -39,11 +39,11 @@ I use an LED matrix like this. Two pieces.
 
 ![matrix](media/led_matrix.png)
 
-# Use a good, reliable power supply! This is very important! 512 WLEDs can draw a lot of current. I don't use the brightness at 100%.
+## Use a good, reliable power supply! This is very important! 512 WLEDs can draw a lot of current. I don't use the brightness at 100%.
 
 In my configuration, when the entire panel is lit white, the current consumption is around 2.7 Amps. But I limit the maximum brightness.
 
-![current](media/current.jpg)
+<img src="media/current.jpg" width="50%">
 
 Here is the wiring diagram.
 
