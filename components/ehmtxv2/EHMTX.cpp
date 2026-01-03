@@ -1086,7 +1086,25 @@ namespace esphome
     }
     else
     {
+      // H - Piros
+      this->display->print(3, 0, this->default_font, Color(255, 0, 0), "H");
+      // O - Narancs
+      this->display->print(9, 0, this->default_font, Color(255, 165, 0), "O");
+      // L - Sárga
+      this->display->print(15, 0, this->default_font, Color(255, 255, 0), "L");
+      // L - Zöld
+      this->display->print(21, 0, this->default_font, Color(0, 255, 0), "L");
+      // Y - Cián
+      this->display->print(27, 0, this->default_font, Color(0, 255, 255), "Y");
 
+      // 8 - Kék
+      this->display->print(37, 0, this->default_font, Color(0, 0, 255), "8");
+      // x - Lila
+      this->display->print(43, 0, this->default_font, Color(128, 0, 128), "X");
+      // 6 - Magenta
+      this->display->print(49, 0, this->default_font, Color(255, 0, 255), "6");
+      // 4 - Fehér
+      this->display->print(55, 0, this->default_font, Color(255, 255, 255), "4");
     }
   }
 
