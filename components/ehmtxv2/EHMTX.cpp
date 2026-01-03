@@ -512,6 +512,7 @@ namespace esphome
     delay(2000);
     if (this->display != nullptr) {
       this->display->clear();    
+    }
 #if defined(USE_API_SERVICES) || defined(USE_API_USER_DEFINED_ACTIONS)
     ESP_LOGD(TAG, "Setting up services");
     register_service(&EHMTX::get_status, "get_status");
