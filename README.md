@@ -2,6 +2,7 @@
 ## Modified version of the [EspHoMaTriXv2](https://github.com/lubeda/EspHoMaTriXv2) library, specifically designed for 64x8 pixel LED matrix (like Ulanzi TC001, AWTRIX...).
 
 ## What everyone needs to set up for themselves:
+(EspHome yaml)
 
 ```yaml
 # Enable OTA
@@ -48,7 +49,7 @@ Here is the wiring diagram.
 ## NEW FEATURES:
 
 - INCREASED DISPLAY SIZE 8X64
-- MODE_ICON_DATE_TIME
+- NEW SCREEN MODE ICON_DATE_TIME
 
 This is the new ICON_DATE_TIME screen. This is the default for me.
 
@@ -61,17 +62,16 @@ If there is no individual information, then this is what is displayed basically.
 # CHANGES TO THE ORIGINAL EspHoMaTriXv2 CODE:
 ## MODIFICATIONS:
 
+- DISABLE FIRE SCREEN
+- I CHANGED THE SCREEN TIME CALCULATION, IN ICON TEXT SCREEN AND RAINBOW ICON TEXT SCREEN MODE
+- CHANGE BOOT SCREEN
 - I MOVED GAUGE TO RIGHT SIDE
 - I MOVED THE INDICATORS LEFT TO THE GAUGE. THE SIZE OF THE INDICATORS CAN BE BETWEEN 1-3.
-- CHANGE BOOT SCREEN
 
 The GAUGE has moved to the right edge. It does not interfere with the text, icons or indicators. The indicators will appear in front of the gauge.
 All indicators (that I left) are enabled. The rightmost indicators do not interfere with the text display at all.
 
 <img src="media/show_gauge_show_lindicators.jpg" width="25%">
-
-- DISABLE FIRE SCREEN
-- I CHANGED THE SCREEN TIME CALCULATION, IN ICON TEXT SCREEN AND RAINBOW ICON TEXT SCREEN MODE
 
 ## REMOVED ITEMS:
 
@@ -124,7 +124,7 @@ I have implemented many icons in the EspHome yaml file. You can delete or add ot
 # Fonts: When installing, pay attention to the correct path to the fonts!
 
 Users will need to manually download the fonts folder from the repo and copy it to their own ESPHome folder.
-I included some fonts. My favorite is the MatrixChunky fonts. I am Hungarian. English letters are fine, but you would not believe how long it took to find normal accented letters. 
+I included some fonts. My favorite is the MatrixChunky fonts. English letters are fine, but you would not believe how long it took to find normal accented letters. 
 
 The accented letters are shifted.
 
@@ -134,4 +134,4 @@ I'm not a programmer, just an enthusiastic amateur. :) If you have any ideas on 
 
 ## Original library by LuBeDa. https://github.com/lubeda/EspHoMaTriXv2
 
-Modified by [hollosipeti].
+### Modified by [hollosipeti].
