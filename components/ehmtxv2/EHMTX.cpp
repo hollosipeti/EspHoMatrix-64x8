@@ -1120,7 +1120,7 @@ namespace esphome
 
     this->ticks_++;
   }
-
+  }
   void EHMTX::skip_screen()
   {
     this->next_action_time = this->get_tick() - 1000.0;
