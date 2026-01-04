@@ -771,3 +771,39 @@ namespace esphome
 
     ESP_LOGD(TAG, "calc_scroll_time: mode: %d text: \"%s\" pixels %d calculated: %.1f defined: %d max_steps: %d", this->mode, text.c_str(), this->pixels_, this->screen_time_ / 1000.0, screen_time, this->scroll_reset);
   }
+  // Icons count, Screen time in seconds
+  void EHMTX_queue::calc_scroll_time(uint8_t icon_count, uint16_t screen_time)
+  {
+    float display_duration;
+    float requested_time = 1000.0 * screen_time;
+
+    // --- Indikátor ellenőrzés (hogy itt is jó legyen a matek) ---
+    uint8_t reduce = 0;
+    if (this->config_->show_display) { 
+        if ((this->config_->BitsToInt(this->config_->display_indicator, 0, 2) > 0) ||
+            (this->config_->BitsToInt(this->config_->display_indicator, 7, 9) > 0)) {
+           reduce = 4;
+        }
+    }
+    uint8_t width = 64 - reduce; 
+    uint8_t startx = 0;
+    uint16_t max_steps = 0;
+
+    this->pixels_ = 9 * icon_count;
+
+    if (this->pixels_ < width)
+    {
+      this->screen_time_ = requested_time;
+    }
+    else
+    {
+      max_steps = EHMTXv2_SCROLL_COUNT * (width - startx) + EHMTXv2_SCROLL_COUNT * this->pixels_;
+      display_duration = static_cast<float>(max_steps * EHMTXv2_SCROLL_INTERVAL);
+      this->screen_time_ = (display_duration > requested_time) ? display_duration : requested_time;
+    }
+
+    this->scroll_reset = (width - startx) + this->pixels_;
+
+    ESP_LOGD(TAG, "calc_scroll_time: mode: %d icons count: %d pixels %d calculated: %.1f defined: %d max_steps: %d", this->mode, icon_count, this->pixels_, this->screen_time_ / 1000.0, screen_time, this->scroll_reset);
+  }
+}
