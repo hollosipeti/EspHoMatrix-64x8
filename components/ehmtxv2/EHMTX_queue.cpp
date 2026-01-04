@@ -373,8 +373,8 @@ if (this->pixels_ < width)
           this->config_->display->strftime(8 + xoffset, this->ypos() + yoffset, font, color_, display::TextAlign::BASELINE_LEFT, EHMTXv2_DATE_FORMAT, this->config_->clock->now());
 
           // 3. Idő kirajzolása (Jobb szélre igazítva)
-          // Jobbra igazítjuk a 58. pixelhez (így biztosan a jobb szélen lesz).
-          this->config_->display->strftime(58 + xoffset, this->ypos() + yoffset, font, color_, display::TextAlign::BASELINE_RIGHT, EHMTXv2_TIME_FORMAT, this->config_->clock->now());
+          // Jobbra igazítjuk a 56. pixelhez
+          this->config_->display->strftime(56 + xoffset, this->ypos() + yoffset, font, color_, display::TextAlign::BASELINE_RIGHT, EHMTXv2_TIME_FORMAT, this->config_->clock->now());
 
           // 4. HÉT NAPJAI (DOW) KIRAJZOLÁSA
           // Ez a függvény rajzolja ki a kis csíkokat alulra.
@@ -869,7 +869,7 @@ if (this->pixels_ < width)
             // --- INNEN UGYANAZ MINT AZ ALERT SCREEN, CSAK A SZÍNEK MÓDOSULTAK FENT ---
             
             //  this->config_->display->start_clipping(8, 0, 64, 8); eza régi
-            this->config_->display->start_clipping(8, 0, 56 - reduce_width, 8);
+            this->config_->display->start_clipping(8, 0, 64 - reduce_width, 8);
             
             // Szöveg kirajzolása (Balra igazítást használunk a korábbi megbeszélés alapján)
             // Mivel ez alert, használhatod a saját balra igazítós logikádat, vagy a standardot.
