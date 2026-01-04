@@ -50,6 +50,7 @@ Here is the wiring diagram.
 
 - INCREASED DISPLAY SIZE 8X64
 - NEW SCREEN MODE ICON_DATE_TIME
+- FLASH_ALERT_SCREEN
 
 This is the new ICON_DATE_TIME screen. This is the default for me.
 
@@ -116,6 +117,11 @@ Icon+text+progress bar. For example, we can display battery charge or some other
 Icon+text. This will appear immediately. It displays important messages. For example, ringing, things like that.
 
 ![alert screens](media/they_rang.jpg)
+
+## Flash_alert_screen.
+Icon+text. This will appear immediately. For very important messages. Flashing is a call for attention.
+
+![flash_alert screens](media/mode_flash_alert_screen.gif)
 
 # Icons:
 
