@@ -239,9 +239,6 @@ EHMTX_SCHEMA = cv.Schema({
     ): cv.templatable(cv.positive_int),
     cv.Optional(CONF_BRIGHTNESS, default=80): cv.templatable(cv.int_range(min=0, max=255)),
     cv.Optional(
-        CONF_LBINDICATOR, default=True
-    ): cv.boolean,
-    cv.Optional(
         CONF_GAUGE, default=True
     ): cv.boolean,
 
