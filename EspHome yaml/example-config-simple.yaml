@@ -1,0 +1,272 @@
+
+###    This version is based on EspHoMaTriX version 2 (EHMTXv2) by LuBeDa. Thanks for that! That modified version is an 8x64 led matrix.    ###
+###    rmt_led_strip and esp-idf. I used the latest ingredients. And I cleaned out the components that were unnecessary for me.   ###
+###    This YAML contains Hungarian language translations!   ###
+###    ESP = ESP32 DEVKIT     ###
+###    GPIO32 = LED matrix    ###
+###    My matrix is ​​in a "serpentine" layout. If someone has a different type of matrix (e.g. Z-shaped), they will have to rewrite!   ###
+
+
+###    SIMPLIFIED VERSION. NO HOME ASSISTANT SENSORS. NO LIGHT SENSOR. ONLY A BASIC DATE TIME DISPLAY.    ###
+
+substitutions:
+  devicename: gf-led-matrix   # gf = ground floor
+  friendly_name: GF LED matrix
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/hollosipeti/EspHoMatrix-64x8
+    refresh: 60s
+    components: [ ehmtxv2 ]
+
+esphome:
+  comment: "Holly GF LED matrix 64x8"
+  name: $devicename
+  project:
+    name: "LED.MATRIX"
+    version: "2026.V.1.0.stable"
+  on_boot:
+    - priority: 600.0
+      then:
+        - lambda: |-
+            id(rgb8x32)->set_display_off();
+            id(rgb8x32)->set_brightness(30);                //set default brightness if you want
+            id(rgb8x32)->set_weekday_color(100,200,100);    //set dow weekday color if you want
+            id(rgb8x32)->set_today_color(255,100,100);      //set dow today color if you want
+        - logger.log: "BOOT...  waiting..."
+    - priority: -100.0
+      then:
+        - wait_until:
+            condition:
+              api.connected:
+        - logger.log: "API connected"
+        - delay: 5s
+        - lambda: |-
+            id(rgb8x32)->set_display_on();
+
+esp32:
+  board: esp32dev
+  cpu_frequency: 240MHz
+  framework:
+    type: esp-idf
+    version: recommended
+#    advanced:
+#      ignore_efuse_custom_mac: true    
+
+# Enable logging
+logger:
+#  level: warn
+
+# Enable Home Assistant API
+api:
+  custom_services: true
+
+# Enable OTA
+ota:
+  - platform: esphome
+    password: !secret ota_password
+ 
+# WI-FI setup
+wifi:
+  networks:
+  - ssid: !secret wifi_ssid_1
+    password: !secret wifi_password
+  - ssid: !secret wifi_ssid_2
+    password: !secret wifi_password
+
+  manual_ip:  #if you want
+    static_ip: 192.168.XXX.XXX
+    gateway: 192.168.XXX.XXX
+    subnet: 255.255.255.0
+    dns1: 8.8.8.8    #if you want
+    dns2: 8.8.4.4    #if you want
+
+# Set screen brightness
+number:
+  - platform: template
+    name: "$devicename Brightness"
+    id: screen_brightness
+    min_value: 20
+    max_value: 120    # at a higher value, it was too bright for me
+    step: 10
+    update_interval: 5s
+    lambda: |-
+      return id(rgb8x32)->get_brightness();
+    set_action:
+      lambda: |-
+        id(rgb8x32)->set_brightness(x);
+
+# Set light output
+light:
+  - platform: esp32_rmt_led_strip
+    id: ehmtx_light
+#    name: "$devicename Ledmatrix"
+    rgb_order: GRB
+    chipset: WS2812
+    pin: GPIO32
+    num_leds: 512   #for 8x64 screen
+    color_correct: [50%, 50%, 50%]
+    gamma_correct: 2.0
+    restore_mode: ALWAYS_OFF
+
+# Set led matrix parameters
+display:
+  - platform: addressable_light
+    id: ehmtx_display
+    addressable_light_id: ehmtx_light
+    width: 64   #for 8x64 screen
+    height: 8
+#  My matrix is ​​in a "serpentine" layout. If someone has a different type of matrix (e.g. Z-shaped), they will have to rewrite this part!    
+    pixel_mapper: |-
+      if (x % 2 == 0) {
+        return (x * 8) + y;
+      }
+      return (x * 8) + (7 - y);
+    rotation: 0°
+    update_interval: 32ms
+#    auto_clear_enabled: true
+    lambda: |-
+      id(rgb8x32)->tick();
+      id(rgb8x32)->draw();    
+
+switch:
+# Display on/off switch
+  - platform: template
+    name: "$devicename Display"
+    id: displaycontrol
+    icon: "mdi:power"
+    restore_mode: ALWAYS_OFF
+    lambda: |-
+      return id(rgb8x32)->show_display;
+    turn_on_action:
+      lambda: |-
+        id(rgb8x32)->set_display_on();
+    turn_off_action:
+      lambda: |-
+        id(rgb8x32)->set_display_off();
+
+# Set time sensor NTP!
+time:
+  - platform: sntp
+    id: ehmtx_time
+    timezone: Europe/Budapest
+    servers:
+      - 0.hu.pool.ntp.org
+      - 1.hu.pool.ntp.org
+      - 2.hu.pool.ntp.org    
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "WiFi IP Address"
+      icon: 'mdi:ip'
+    ssid:
+      name: "WiFi Connected SSID"
+      icon: 'mdi:wifi-settings'      
+
+  - platform: uptime
+    name: Uptime
+    format:
+      separator: " "
+      days: "D"      
+
+#mateine 14/7, arial 8/7, MatrixChunky6.ttf  6/7
+font:
+  - file: fonts/MatrixChunky6X.ttf
+    id: default_font
+    size: 6
+    glyphs: |-
+       !?"%()+*=,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyzÁÉÍÓÖŐÚÜŰáéíóöőúüű@<>ß€/
+
+  - file: fonts/Silkscreen-Regular.ttf
+    id: special_font
+    size: 10
+    glyphs: |-
+       !?"%()+*=,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyzÁÉÍÓÖÚÜáéíóöúü@<>ß€/
+
+ehmtxv2:
+  id: rgb8x32
+  icons2html: true
+  matrix_component: ehmtx_display
+  time_component: ehmtx_time
+  time_format: "%H: %M"
+  date_format: "%b.%d."
+  show_seconds: false
+#  show_dow: false
+  default_font_id: default_font
+  default_font_yoffset: 7
+  special_font_id: special_font
+  special_font_yoffset: 8
+  scroll_interval: 80
+  icons: 
+    - id: error     # THIS SHOULD BE FIRST!
+      lameid: 40530
+    - id: battery100
+      lameid: 6358      
+    - id: clockicon
+      lameid: 2325
+    - id: calendarweek
+      lameid: 10500
+    - lameid: 20275
+      id: temp
+    - lameid: 5453
+      id: bell
+    - id: house
+      lameid: 1299
+    - id: gate_open
+      lameid: 62452
+    - lameid: 9272
+      id: fire
+    - lameid: 34801
+      id: shopping
+    - lameid: 37533
+      id: thunder
+    - lameid: 102
+      id: birthday
+    - lameid: 8660
+      id: birthday2      
+    - lameid: 1782
+      id: xmastree
+    - id: weather_clear_night
+      lameid: 53383
+    - id: weather_cloudy
+      frame_duration: 192
+      lameid: 25991
+    - id: weather_exceptional
+      lameid: 16754
+    - id: weather_fog
+      lameid: 52167
+    - id: weather_hail
+      lameid: 53288
+    - id: weather_lightning
+      lameid: 23713
+    - id: weather_lightning_rainy
+      lameid: 49299
+    - id: weather_partlycloudy
+      frame_duration: 210
+      lameid: 22160
+    - id: weather_pouring
+      lameid: 49300
+    - id: weather_rainy
+      lameid: 26565
+    - id: weather_snowy
+      lameid: 2289
+    - id: weather_snowy_rainy
+      lameid: 49301
+    - id: weather_sunny
+      lameid: 11201
+    - id: weather_windy
+      lameid: 15618
+    - id: weather_cloudy_night
+      lameid: 12195
+    - id: humidity_icon
+      lameid: 53392
+    - id: temperature
+      lameid: 2056
+
+# This section contains Hungarian language translations! I use the device in Hungary.
+  on_empty_queue:
+    then:
+      - lambda: |-
+          id(rgb8x32)->icon_date_time_screen("calendarweek", 1, 8, true, 180, 180, 255);
