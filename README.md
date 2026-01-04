@@ -1,12 +1,12 @@
 # EspHoMatrix-64x8 with ESP32
 ** Custom ESPHome configuration for 64x8 pixel LED matrix. Included the ESPHome yaml **
 
-The latest EspHome version and ESP-IDF are used today. 04. Jan. 2026.
+The latest ESPHome version and ESP-IDF are used today. 04. Jan. 2026.
 ### This is a modified and expanded version of the excellent [EspHoMaTriXv2](https://github.com/lubeda/EspHoMaTriXv2) library.
 While the original was designed for standard 8x32 clocks, this version is specifically optimized for **double-width (64x8) displays**, allowing for more information, and better aesthetics.
 
-## What everyone needs to set up for themselves:
-(EspHome yaml)
+### What everyone needs to set up for themselves in the ESPHome yaml file:
+(ESPHome yaml)
 
 ```yaml
 # Enable OTA
@@ -129,7 +129,7 @@ Icon+text. This will appear immediately. For very important messages. Flashing i
 
 # Icons:
 
-I have implemented many icons in the EspHome yaml file. You can delete or add other icons at any time. You can find the icons here: https://developer.lametric.com/icons
+I have implemented many icons in the ESPHome yaml file. You can delete or add other icons at any time. You can find the icons here: https://developer.lametric.com/icons
 
 # Fonts: When installing, pay attention to the correct path to the fonts!
 
