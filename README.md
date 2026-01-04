@@ -1,5 +1,7 @@
-# EspHoMatrix-64x8
-## Modified version of the [EspHoMaTriXv2](https://github.com/lubeda/EspHoMaTriXv2) library, specifically designed for 64x8 pixel LED matrix (like Ulanzi TC001, AWTRIX...).
+# EspHoMatrix-64x8 with ESP32
+**Custom ESPHome configuration for 64x8 pixel LED matrix **
+### This is a modified and expanded version of the excellent [EspHoMaTriXv2](https://github.com/lubeda/EspHoMaTriXv2) library.
+While the original was designed for standard 8x32 clocks, this version is specifically optimized for **double-width (64x8) displays**, allowing for more information, and better aesthetics.
 
 ## What everyone needs to set up for themselves:
 (EspHome yaml)
@@ -32,13 +34,15 @@ I am Hungarian, there are Hungarian language parts in the repo.
 
 I will have this display on top of my kitchen cabinet. That's why I don't have any buttons. There's nothing else but the display and a photoresistor for automatic brightness adjustment.
 
-I use an LED matrix like this. Two pieces. My matrix is ​​in a "serpentine" layout. If someone has a different type of matrix (e.g. Z-shaped), they will have to rewrite!
+I use an LED matrix like this. Two pieces, in series. My matrix is ​​in a "serpentine" layout. If someone has a different type of matrix (e.g. Z-shaped), they will have to rewrite!
 
 ![matrix](media/led_matrix.png)
 
-## Use a good, reliable power supply! This is very important! 512 WLEDs can draw a lot of current. I don't use the brightness at 100%.
+### ⚠️ Power Supply Warning
+**Use a high-quality, reliable power supply!**
+## This is very important! 512 WLEDs can draw a lot of current. I don't use the brightness at 100%.
 
-In my configuration, when the entire panel is lit white, the current consumption is around 2.7 Amps. But I limit the maximum brightness.
+In my configuration, when the entire panel is lit white, the current consumption is around 2.7 Amps. (though I limit max brightness in software)
 
 <img src="media/current.jpg" width="50%">
 
@@ -49,8 +53,7 @@ Here is the wiring diagram.
 ## NEW FEATURES:
 
 - INCREASED DISPLAY SIZE 8X64
-- NEW SCREEN MODE ICON_DATE_TIME
-- FLASH_ALERT_SCREEN
+- NEW SCREEN MODE: ICON_DATE_TIME and FLASH_ALERT_SCREEN
 
 This is the new ICON_DATE_TIME screen. This is the default for me.
 
@@ -107,7 +110,7 @@ The only difference between icon_screen and icon_text_screen is that in icon_tex
 
 
 ## Text_screen_progress.
-Icon+text+progress bar. For example, we can display battery charge or some other process.
+Icon+text+progress bar. Great for battery level or other sensor ranges.
 
 ![progress screens](media/text_screen_progress1.jpg)
 ![progress screens](media/text_screen_progress2.jpg)
@@ -136,8 +139,9 @@ The accented letters are shifted.
 
 ![progress screens](media/letter_problems.jpg)
 
-I'm not a programmer, just an enthusiastic amateur. :) If you have any ideas on how to improve this project, please let me know.
+> **Note:** I am an enthusiastic amateur developer from Hungary. Constructive feedback is welcome!
 
-## Original library by LuBeDa. https://github.com/lubeda/EspHoMaTriXv2
-
-### Modified by [hollosipeti].
+## 🙏 Credits
+* Original Library: [EspHoMaTriXv2](https://github.com/lubeda/EspHoMaTriXv2) by LuBeDa.
+* Icons source: [LaMetric Developer](https://developer.lametric.com/icons)
+* Modifications by: **[hollosipeti]**
