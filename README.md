@@ -1,5 +1,7 @@
 # EspHoMatrix-64x8 with ESP32
-**Custom ESPHome configuration for 64x8 pixel LED matrix **
+** Custom ESPHome configuration for 64x8 pixel LED matrix. Included the ESPHome yaml **
+
+The latest EspHome version and ESP-IDF are used today. 04. Jan. 2026.
 ### This is a modified and expanded version of the excellent [EspHoMaTriXv2](https://github.com/lubeda/EspHoMaTriXv2) library.
 While the original was designed for standard 8x32 clocks, this version is specifically optimized for **double-width (64x8) displays**, allowing for more information, and better aesthetics.
 
@@ -28,7 +30,6 @@ wifi:
     dns2: 8.8.4.4    #if you want
 
 ```
-The latest EspHome version and ESP-IDF are used today. 03. Jan. 2026.
 
 I am Hungarian, there are Hungarian language parts in the repo.
 
@@ -40,7 +41,7 @@ I use an LED matrix like this. Two pieces, in series. My matrix is ​​in a "s
 
 ### ⚠️ Power Supply Warning
 **Use a high-quality, reliable power supply!**
-## This is very important! 512 WLEDs can draw a lot of current. I don't use the brightness at 100%.
+### This is very important! 512 WLEDs can draw a lot of current. I don't use the brightness at 100%.
 
 In my configuration, when the entire panel is lit white, the current consumption is around 2.7 Amps. (though I limit max brightness in software)
 
@@ -69,7 +70,7 @@ If there is no individual information, then this is what is displayed basically.
 - DISABLE FIRE SCREEN
 - I CHANGED THE SCREEN TIME CALCULATION, IN ICON TEXT SCREEN AND RAINBOW ICON TEXT SCREEN MODE
 - CHANGE BOOT SCREEN
-- I MOVED GAUGE TO RIGHT SIDE
+- I MOVED GAUGE TO THE RIGHT SIDE
 - I MOVED THE INDICATORS LEFT TO THE GAUGE. THE SIZE OF THE INDICATORS CAN BE BETWEEN 1-3.
 
 The GAUGE has moved to the right edge. It does not interfere with the text, icons or indicators. The indicators will appear in front of the gauge.
@@ -92,7 +93,7 @@ All indicators (that I left) are enabled. The rightmost indicators do not interf
 - GRAPH_SCREEN
 - FIRE SCREEN
 
-# Some examples:
+# Some examples of displays:
 
 ## Normal text_screen.
 There is only text here.
@@ -132,10 +133,10 @@ I have implemented many icons in the EspHome yaml file. You can delete or add ot
 
 # Fonts: When installing, pay attention to the correct path to the fonts!
 
-Users will need to manually download the fonts folder from the repo and copy it to their own ESPHome folder.
+### Users will need to manually download the fonts folder from the repo and copy it to their own ESPHome folder.
 I included some fonts. My favorite is the MatrixChunky fonts. English letters are fine, but you would not believe how long it took to find normal accented letters. 
 
-The accented letters are shifted.
+The accented letters are shifted. This is already resolved.
 
 ![progress screens](media/letter_problems.jpg)
 
