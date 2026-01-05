@@ -92,6 +92,8 @@ All indicators (that I left) are enabled. The rightmost indicators do not interf
 - ICINDICATOR
 - GRAPH_SCREEN
 - FIRE SCREEN
+- CLOCK SCREEN
+- DATE SCREEN
 
 # Some examples of displays:
 
@@ -135,6 +137,7 @@ I have implemented many icons in the ESPHome yaml file. You can delete or add ot
 
 ### Users will need to manually download the fonts folder from the repo and copy it to their own ESPHome folder.
 I included some fonts. My favorite is the MatrixChunky fonts. English letters are fine, but you would not believe how long it took to find normal accented letters. 
+If you select a very wide font, the fixed display elements (text_screen_progress, icon_clock, icon_date, date_time_screen) will render incorrectly.
 
 The accented letters are shifted. This is already resolved.
 
