@@ -1,0 +1,2656 @@
+/**
+ * @file EHMTX.cpp
+ * @author Lubeda and a lot helper
+ * @brief  The main file for the custom component
+ * @version 0.1
+ * @date 2024-06-11
+ * 
+ * @copyright Copyright (c) 2024-2025
+ * 
+ */
+#include "esphome.h"
+#include <sstream>
+#include <vector>
+#include <algorithm>
+#include <string>
+#include <regex>
+
+// #define USE_ESP32
+
+namespace esphome
+{
+  /**
+   * @brief Construct a new EHMTX::EHMTX object
+   * 
+   */
+  EHMTX::EHMTX() : PollingComponent(POLLINGINTERVAL)
+  {
+    this->show_display = true;
+    this->display_indicator = 0;
+    this->icon_to_9 = 0;
+    this->clock_time = 10;
+    this->icon_count = 0;
+    this->hue_ = 180;
+    this->rainbow_color = Color(CA_RED, CA_GREEN, CA_BLUE);
+    this->info_lcolor = Color(CG_GREY, CG_GREY, CG_GREY);
+    this->info_rcolor = Color(CG_GREY * 2, CG_GREY * 2, CG_GREY * 2);
+    this->solid_color = Color(C_RED, C_GREEN, C_BLUE);
+    this->calendar_color = Color(C_RED, C_BLACK, C_BLACK);
+    this->next_action_time = 0.0;
+    this->last_scroll_time = 0;
+    this->screen_pointer = MAXQUEUE;
+    this->is_running = false;
+    this->set_today_color();
+    this->set_weekday_color();
+    this->night_mode = false;
+    this->weekday_accent = false;
+
+#ifdef EHMTXv2_GAUGE
+    this->display_gauge = false;
+#endif
+
+#ifdef EHMTXv2_USE_VERTICAL_SCROLL
+    this->vertical_scroll = false;
+#endif
+
+    for (uint8_t i = 0; i < MAXQUEUE; i++)
+    {
+      this->queue[i] = new EHMTX_queue(this);
+    }
+
+#ifdef EHMTXv2_ADV_CLOCK
+    this->info_clock_lcolor = Color(CG_GREY, CG_GREY, CG_GREY);
+    this->info_clock_rcolor = Color(CG_GREY * 2, CG_GREY * 2, CG_GREY * 2);
+
+    this->set_clock_color();
+    this->set_adv_clock_color();
+#endif
+
+#ifdef EHMTXv2_MULTICOLOR_TEXT
+    std::vector<std::tuple<Color, std::string, uint16_t>>().swap(this->text_for_draw);
+#endif
+  }
+
+/**
+ * @brief display alarm indicator on the top right side
+ * 
+ * @param r red
+ * @param g green
+ * @param b blue
+ * @param size 1-3
+ */
+  void EHMTX::show_alarm(int32_t r, int32_t g, int32_t b, int32_t size)
+  {
+    if (size > 3) { size = 3; }
+    if (size > 0)
+    {
+      this->alarm_color = Color((uint8_t)r, (uint8_t)g, (uint8_t)b);
+      this->display_indicator = this->IntToBits(this->display_indicator, size, 3, 0);
+      ESP_LOGD(TAG, "Show alarm (top right) size: %d color r: %d g: %d b: %d", size, r, g, b);
+    }
+    else
+    {
+      this->hide_alarm();
+    }
+  }
+
+
+#ifdef EHMTXv2_RBINDICATOR
+/**
+ * @brief display a indicator on the bottom right side
+ * 
+ * @param r red
+ * @param g green
+ * @param b blue
+ * @param size 1-3
+ */
+  void EHMTX::show_rindicator(int32_t r, int32_t g, int32_t b, int32_t size)
+  {
+    if (size > 3) { size = 3; }
+    if (size > 0)
+    {
+      this->rbindicator_color = Color((uint8_t)r, (uint8_t)g, (uint8_t)b);
+      this->display_indicator = this->IntToBits(this->display_indicator, size % 4, 3, 7);
+      ESP_LOGD(TAG, "Show indicator (bottom right) size: %d r: %d g: %d b: %d", size % 4, r, g, b);
+    }
+    else
+    {
+      this->hide_rindicator();
+    }
+  }
+#endif
+
+
+/**
+ * @brief hides the alarm indicator
+ * 
+ */
+  void EHMTX::hide_alarm()
+  {
+    this->display_indicator = this->IntToBits(this->display_indicator, 0, 3, 0);
+    ESP_LOGD(TAG, "Hide alarm indicator");
+  }
+
+#ifdef EHMTXv2_RBINDICATOR
+/**
+ * @brief hides the right bottom indicator
+ * 
+ */
+  void EHMTX::hide_rindicator()
+  {
+    this->display_indicator = this->IntToBits(this->display_indicator, 0, 3, 7);
+    ESP_LOGD(TAG, "Hide indicator (bottom right)");
+  }
+#endif
+
+/**
+ * @brief turns display off
+ * 
+ */
+  void EHMTX::set_display_off()
+  {
+    this->show_display = false;
+    ESP_LOGD(TAG, "display off");
+
+    if (this->is_running)
+    {
+      this->display->clear();
+    }
+
+    for (auto *t : on_show_display_triggers_)
+    {
+      t->process(this->show_display);
+    }
+  }
+
+/**
+ * @brief turns display on
+ * 
+ */
+  void EHMTX::set_display_on()
+  {
+    this->show_display = true;
+    ESP_LOGD(TAG, "display on");
+
+    for (auto *t : on_show_display_triggers_)
+    {
+      t->process(this->show_display);
+    }
+  }
+/**
+ * @brief end night mode
+ * 
+ */
+  void EHMTX::set_night_mode_off()
+  {
+    this->night_mode = false;
+    ESP_LOGD(TAG, "night mode off");
+
+    for (auto *t : on_night_mode_triggers_)
+    {
+      t->process(this->night_mode);
+    }
+  }
+/**
+ * @brief  in night mode not all screens are shown
+ * 
+ */
+  void EHMTX::set_night_mode_on()
+  {
+    this->night_mode = true;
+    ESP_LOGD(TAG, "night mode on");
+
+    for (auto *t : on_night_mode_triggers_)
+    {
+      t->process(this->night_mode);
+    }
+  }
+
+  void EHMTX::set_weekday_accent_off()
+  {
+    this->weekday_accent = false;
+    ESP_LOGD(TAG, "weekday accent off");
+  }
+
+/**
+ * @brief turns on the display of small days (accent) of the week when brightness is insufficient
+ * 
+ */
+  void EHMTX::set_weekday_accent_on()
+  {
+    this->weekday_accent = true;
+    ESP_LOGD(TAG, "weekday accent on");
+  }
+
+/**
+ * @brief sets the default color for the line indication the actuall day of week
+ * 
+ * @param r 
+ * @param g 
+ * @param b 
+ */
+  void EHMTX::set_today_color(int32_t r, int32_t g, int32_t b)
+  {
+    this->today_color = Color((uint8_t)r, (uint8_t)g, (uint8_t)b);
+    ESP_LOGD(TAG, "default today color r: %d g: %d b: %d", r, g, b);
+  }
+
+/**
+ * @brief sets the default color for the line indication the other days
+ * 
+ * @param r 
+ * @param g 
+ * @param b 
+ */
+  void EHMTX::set_weekday_color(int32_t r, int32_t g, int32_t b)
+  {
+    this->weekday_color = Color((uint8_t)r, (uint8_t)g, (uint8_t)b);
+    ESP_LOGD(TAG, "default weekday color: %d g: %d b: %d", r, g, b);
+  }
+/**
+ * @brief some mode look better with wider icons
+ * 
+ * @param mode the screen mode
+ */
+  void EHMTX::expand_icon_to_9(int32_t mode)
+  {
+    this->icon_to_9 = mode;
+    ESP_LOGD(TAG, "icon expanded to 9 mode: %d", mode);
+  }
+/**
+ * @brief helper to check trailing chars for behavior selection
+ * 
+ * @param fullString the text to examine
+ * @param ending the characters to look for
+ * @return true 
+ * @return false 
+ */
+  bool EHMTX::string_has_ending(std::string const &fullString, std::string const &ending)
+  {
+    if (fullString.length() >= ending.length())
+    {
+      return (0 == fullString.compare(fullString.length() - ending.length(), ending.length(), ending));
+    }
+    else
+    {
+      return false;
+    }
+  }
+/**
+ * @brief Get the icon name object
+ * 
+ * @param iconname icon name with additional parameters after `delim`
+ * @param delim the delimiter
+ * @return std::string the cleaned up iconname
+ */
+  std::string get_icon_name(std::string iconname, char delim = '|')
+  {
+    std::stringstream stream(iconname);
+    std::string icon;
+    std::vector<std::string> tokens;
+
+    while (std::getline(stream, icon, delim))
+    {
+      if (!icon.empty())
+      {
+        tokens.push_back(icon);
+      }
+    }
+
+    return (tokens.size() > 0) ? tokens[0] : "";
+  }
+
+  std::string get_screen_id(std::string iconname, char delim = '|')
+  {
+    std::stringstream stream(iconname);
+    std::string screen_id;
+    std::vector<std::string> tokens;
+
+    while (std::getline(stream, screen_id, delim))
+    {
+      if (!screen_id.empty())
+      {
+        tokens.push_back(screen_id);
+      }
+    }
+
+    return (tokens.size() > 1) ? tokens[1] : (tokens.size() > 0) ? (iconname.find("*") != std::string::npos) ? get_icon_name(tokens[0], '_') : tokens[0]
+                                                                 : "";
+  }
+
+  uint8_t EHMTX::find_icon(std::string name)
+  {
+    if (name == "blank")
+    {
+      return BLANKICON;
+    }
+
+    if (name == "solid")
+    {
+      return SOLIDICON;
+    }
+
+    if (name == "calendar")
+    {
+      return CALENDARICON;
+    }
+
+    for (uint8_t i = 0; i < this->icon_count; i++)
+    {
+      if (strcmp(this->icons[i]->name.c_str(), name.c_str()) == 0)
+      {
+        ESP_LOGD(TAG, "icon: %s found id: %d", name.c_str(), i);
+        return i;
+      }
+    }
+    ESP_LOGW(TAG, "icon: %s not found", name.c_str());
+
+    return MAXICONS;
+  }
+
+  uint8_t EHMTX::find_icon_in_queue(std::string name)
+  {
+    for (uint8_t i = 0; i < MAXQUEUE; i++)
+    {
+      if (strcmp(this->queue[i]->icon_name.c_str(), name.c_str()) == 0)
+      {
+        ESP_LOGD(TAG, "find icon in queue: icon: %s at position %d", name.c_str(), i);
+        return i;
+      }
+    }
+    ESP_LOGW(TAG, "find icon in queue: icon: %s not found", name.c_str());
+    return MAXICONS;
+  }
+
+#ifdef EHMTXv2_GAUGE
+
+#ifndef USE_ESP8266
+
+  void EHMTX::show_gauge(int32_t percent, int32_t r, int32_t g, int32_t b, int32_t bg_r, int32_t bg_g, int32_t bg_b)
+  {
+    if (percent <= 100)
+    {
+      Color c = Color(r, g, b);
+      Color bgc = Color(bg_r, bg_g, bg_b);
+      for (uint8_t i = 0; i < 8; i++)
+      {
+        if (percent > i * 12.5)
+        {
+          this->cgauge[7 - i] = c;
+        }
+        else
+        {
+          this->cgauge[7 - i] = bgc;
+        }
+      }
+      this->display_gauge = true;
+      ESP_LOGD(TAG, "show_gauge 2 color %d", int(round(percent)));
+    }
+  }
+#else
+  void EHMTX::show_gauge(int32_t percent, int32_t r, int32_t g, int32_t b, int32_t bg_r, int32_t bg_g, int32_t bg_b)
+  {
+    this->display_gauge = false;
+    if (percent <= 100)
+    {
+      this->gauge_color = Color(r, g, b);
+      this->gauge_bgcolor = Color(bg_r, bg_g, bg_b);
+      this->display_gauge = true;
+      this->gauge_value = (uint8_t)(100 - percent) * 7 / 100;
+    }
+    ESP_LOGD(TAG, "show_gauge 2 color %d", int(round(percent)));
+  }
+#endif
+
+#ifdef USE_ESP8266
+  void EHMTX::draw_gauge()
+  {
+    if (this->display_gauge)
+    {
+      this->display->line(63, 7, 63, 0, this->gauge_bgcolor);
+      this->display->line(62, 7, 62, 0, esphome::display::COLOR_OFF);   // a GAUGE előtti fekete oszlop
+      this->display->line(63, 7, 63, this->gauge_value, this->gauge_color);
+    }
+  }
+#else
+  void EHMTX::draw_gauge()
+  {
+    if (this->display_gauge)
+    {
+      for (uint8_t y = 0; y < 8; y++)
+      {
+        this->display->draw_pixel_at(63, y, this->cgauge[y]);
+      }
+      this->display->line(62, 7, 62, 0, esphome::display::COLOR_OFF);   // a GAUGE előtti fekete oszlop
+    }
+  }
+#endif
+
+  void EHMTX::hide_gauge()
+  {
+    this->display_gauge = false;
+    ESP_LOGD(TAG, "hide gauge");
+  }
+
+#endif  // EHMTXv2_GAUGE
+
+  void EHMTX::setup()
+  {
+    delay(2000);
+    if (this->display != nullptr) {
+      this->display->clear();    
+    }
+#if defined(USE_API_SERVICES) || defined(USE_API_USER_DEFINED_ACTIONS)
+    ESP_LOGD(TAG, "Setting up services");
+    register_service(&EHMTX::get_status, "get_status");
+    register_service(&EHMTX::set_display_on, "display_on");
+    register_service(&EHMTX::set_display_off, "display_off");
+    register_service(&EHMTX::hold_screen, "hold_screen", {"time"});
+
+    register_service(&EHMTX::show_alarm, "show_alarm", {"r", "g", "b", "size_max_3"});
+    register_service(&EHMTX::hide_alarm, "hide_alarm");
+    #ifdef EHMTXv2_RBINDICATOR
+    register_service(&EHMTX::show_rindicator, "show_rindicator", {"r", "g", "b", "size_max_3"});
+    register_service(&EHMTX::hide_rindicator, "hide_rindicator");
+    #endif
+    #ifdef EHMTXv2_GAUGE
+    register_service(&EHMTX::show_gauge, "show_gauge", {"percent", "r", "g", "b", "bg_r", "bg_g", "bg_b"});
+    register_service(&EHMTX::hide_gauge, "hide_gauge");
+    #endif
+
+    register_service(&EHMTX::set_today_color, "set_today_color", {"r", "g", "b"});
+    register_service(&EHMTX::set_weekday_color, "set_weekday_color", {"r", "g", "b"});
+    register_service(&EHMTX::set_clock_color, "set_clock_color", {"r", "g", "b"});
+    register_service(&EHMTX::set_text_color, "set_text_color", {"r", "g", "b"});
+    register_service(&EHMTX::set_infotext_color, "set_infotext_color", {"left_r", "left_g", "left_b", "right_r", "right_g", "right_b", "default_font", "y_offset"});
+    register_service(&EHMTX::expand_icon_to_9, "expand_icon_to_9", {"mode"});
+
+    register_service(&EHMTX::set_solid_color, "set_solid_color", {"r", "g", "b"});
+    register_service(&EHMTX::set_calendar_color, "set_calendar_color", {"r", "g", "b"});
+
+    register_service(&EHMTX::set_night_mode_on, "night_mode_on");
+    register_service(&EHMTX::set_night_mode_off, "night_mode_off");
+
+    register_service(&EHMTX::set_weekday_accent_on, "weekday_accent_on");
+    register_service(&EHMTX::set_weekday_accent_off, "weekday_accent_off");
+
+    register_service(&EHMTX::del_screen, "del_screen", {"icon_name", "mode"});
+    register_service(&EHMTX::force_screen, "force_screen", {"icon_name", "mode"});
+
+    register_service(&EHMTX::full_screen, "full_screen", {"icon_name", "lifetime", "screen_time"});
+    register_service(&EHMTX::icon_screen, "icon_screen", {"icon_name", "text", "lifetime", "screen_time", "default_font", "r", "g", "b"});
+    register_service(&EHMTX::alert_screen, "alert_screen", {"icon_name", "text", "screen_time", "default_font", "r", "g", "b"});
+    register_service(&EHMTX::flash_alert_screen, "flash_alert_screen", {"icon_name", "text", "screen_time", "default_font", "r", "g", "b"});
+    register_service(&EHMTX::rainbow_alert_screen, "rainbow_alert_screen", {"icon_name", "text", "screen_time", "default_font"});
+    register_service(&EHMTX::icon_clock, "icon_clock", {"icon_name", "lifetime", "screen_time", "default_font", "r", "g", "b"});
+    register_service(&EHMTX::icon_date, "icon_date", {"icon_name", "lifetime", "screen_time", "default_font", "r", "g", "b"});
+    register_service(&EHMTX::icon_date_time_screen, "icon_date_time_screen", {"icon_name", "lifetime", "screen_time", "default_font", "r", "g", "b"});
+
+    register_service(&EHMTX::rainbow_icon_screen, "rainbow_icon_screen", {"icon_name", "text", "lifetime", "screen_time", "default_font"});
+
+    register_service(&EHMTX::icon_text_screen, "icon_text_screen", {"icon_name", "text", "lifetime", "screen_time", "default_font", "r", "g", "b"});
+    register_service(&EHMTX::rainbow_icon_text_screen, "rainbow_icon_text_screen", {"icon_name", "text", "lifetime", "screen_time", "default_font"});
+
+    register_service(&EHMTX::text_screen, "text_screen", {"text", "lifetime", "screen_time", "default_font", "r", "g", "b"});
+    register_service(&EHMTX::rainbow_text_screen, "rainbow_text_screen", {"text", "lifetime", "screen_time", "default_font"});
+
+    register_service(&EHMTX::blank_screen, "blank_screen", {"lifetime", "screen_time"});
+    register_service(&EHMTX::color_screen, "color_screen", {"lifetime", "screen_time", "r", "g", "b"});
+
+    register_service(&EHMTX::set_brightness, "brightness", {"value"});
+
+#ifdef EHMTXv2_ADV_CLOCK
+    register_service(&EHMTX::set_clock_infotext_color, "set_clock_infotext_color", {"left_r", "left_g", "left_b", "right_r", "right_g", "right_b", "default_font", "y_offset"});
+    register_service(&EHMTX::set_date_infotext_color, "set_date_infotext_color", {"left_r", "left_g", "left_b", "right_r", "right_g", "right_b", "default_font", "y_offset"});
+    register_service(&EHMTX::set_adv_clock_color, "set_adv_clock_color", {"hr", "hg", "hb", "mr", "mg", "mb", "sr", "sg", "sb"});
+#endif
+
+    register_service(&EHMTX::text_screen_progress, "text_screen_progress", {"text", "value_max_4_characters", "progress", "lifetime", "screen_time", "default_font", "value_color_as_progress", "r", "g", "b"});
+    register_service(&EHMTX::icon_screen_progress, "icon_screen_progress", {"icon_name", "text", "progress", "lifetime", "screen_time", "default_font", "r", "g", "b"});
+    register_service(&EHMTX::set_progressbar_color, "set_progressbar_color", {"icon_name", "mode", "r", "g", "b", "bg_r", "bg_g", "bg_b"});
+
+    register_service(&EHMTX::icon_prognosis_screen, "icon_prognosis_screen", {"icon_name", "text", "prognosis", "lifetime", "screen_time", "default_font"});
+    register_service(&EHMTX::icon_prognosis_screen_rgb, "icon_prognosis_screen_rgb", {"icon_name", "text", "prognosis", "lifetime", "screen_time", "default_font", "r", "g", "b"});
+#endif
+
+    ESP_LOGD(TAG, "Setup and running!");
+
+    // --- végső kijelző törlés boot után ---
+    if (this->display != nullptr) {
+      this->display->clear();   // <<< IDE
+    }
+  }
+
+  void EHMTX::set_clock_color(int32_t r, int32_t g, int32_t b)
+  {
+    this->clock_color = Color((uint8_t)r, (uint8_t)g, (uint8_t)b);
+
+    for (size_t i = 0; i < MAXQUEUE; i++)
+    {
+      if (this->queue[i]->mode == MODE_ICON_CLOCK ||
+          this->queue[i]->mode == MODE_ICON_DATE)
+      {
+        this->queue[i]->text_color = this->clock_color;
+      }
+    }
+    ESP_LOGD(TAG, "default clock color r: %d g: %d b: %d", r, g, b);
+  }
+
+  void EHMTX::set_text_color(int32_t r, int32_t g, int32_t b)
+  {
+    this->text_color = Color((uint8_t)r, (uint8_t)g, (uint8_t)b);
+    ESP_LOGD(TAG, "default text color r: %d g: %d b: %d", r, g, b);
+  }
+
+  void EHMTX::set_infotext_color(int32_t lr, int32_t lg, int32_t lb, int32_t rr, int32_t rg, int32_t rb, bool df, int32_t y_offset)
+  {
+    this->info_lcolor = Color((uint8_t)lr, (uint8_t)lg, (uint8_t)lb);
+    this->info_rcolor = Color((uint8_t)rr, (uint8_t)rg, (uint8_t)rb);
+    this->info_font = df;
+    this->info_y_offset = y_offset;
+    ESP_LOGD(TAG, "info text color left: r: %d g: %d b: %d right: r: %d g: %d b: %d y_offset %d", lr, lg, lb, rr, rg, rb, y_offset);
+#ifdef EHMTXv2_ADV_CLOCK
+    this->set_clock_infotext_color(lr, lg, lb, rr, rg, rb, df, y_offset);
+    this->set_date_infotext_color(lr, lg, lb, rr, rg, rb, df, y_offset);
+#endif
+  }
+
+  void EHMTX::set_solid_color(int32_t r, int32_t g, int32_t b)
+  {
+    this->solid_color = Color((uint8_t)r, (uint8_t)g, (uint8_t)b);
+    ESP_LOGD(TAG, "solid icon color r: %d g: %d b: %d", r, g, b);
+  }
+
+  void EHMTX::set_calendar_color(int32_t r, int32_t g, int32_t b)
+  {
+    this->calendar_color = Color((uint8_t)r, (uint8_t)g, (uint8_t)b);
+    ESP_LOGD(TAG, "calendar icon color r: %d g: %d b: %d", r, g, b);
+  }
+
+  void EHMTX::update() // called from polling component
+  {
+    if (!this->is_running)
+    {
+      if (this->clock->now().is_valid())
+      {
+        ESP_LOGD(TAG, "time sync => start running");
+
+        this->is_running = true;
+
+        for (auto *t : on_start_running_triggers_)
+        {
+          ESP_LOGD(TAG, "on_start_running_triggers");
+          t->process();
+        }
+      }
+    }
+    else
+    {
+    }
+  }
+
+  void EHMTX::force_screen(std::string icon_name, int32_t mode)
+  {
+    for (uint8_t i = 0; i < MAXQUEUE; i++)
+    {
+      if (this->queue[i]->mode == mode)
+      {
+        bool force = true;
+        if ((mode == MODE_ICON_SCREEN) ||
+            (mode == MODE_ICON_CLOCK) ||
+            (mode == MODE_ICON_DATE) ||
+            (mode == MODE_FULL_SCREEN) ||
+            (mode == MODE_RAINBOW_ICON) ||
+            (mode == MODE_ICON_PROGRESS) ||
+            (mode == MODE_ICON_TEXT_SCREEN) ||
+            (mode == MODE_RAINBOW_ICON_TEXT_SCREEN) ||
+            (mode == MODE_TEXT_PROGRESS) ||
+            (mode == MODE_PROGNOSIS_SCREEN))
+        {
+          if (strcmp(this->queue[i]->icon_name.c_str(), icon_name.c_str()) != 0)
+          {
+            force = false;
+          }
+        }
+        // Will allow force any screen [andrewjswan].
+        if (force)
+        {
+          ESP_LOGD(TAG, "force_screen: found position: %d", i);
+          this->next_action_time = this->get_tick();
+          this->queue[i]->last_time = 0.0;
+          if (this->queue[i]->endtime < this->next_action_time + this->queue[i]->screen_time_)
+          {
+            this->queue[i]->endtime = this->next_action_time + this->queue[i]->screen_time_;
+          }
+          ESP_LOGW(TAG, "force_screen: icon %s in mode %d", icon_name.c_str(), mode);
+        }
+      }
+    }
+  }
+
+  uint8_t EHMTX::find_oldest_queue_element()
+  {
+    uint8_t hit = MAXQUEUE;
+    float last_time = this->get_tick();
+    for (size_t i = 0; i < MAXQUEUE; i++)
+    {
+      if (this->queue[i]->mode == MODE_EMPTY)
+      {
+        continue;
+      }
+
+      if (this->night_mode)
+      {
+        bool skip = true;
+        for (auto id : EHMTXv2_CONF_NIGHT_MODE_SCREENS)
+        {
+          if (this->queue[i]->mode == id)
+          {
+            skip = false;
+          }
+        }
+        if (skip)
+        {
+          continue;
+        }
+      }
+
+      if ((this->queue[i]->endtime > this->get_tick()) && (this->queue[i]->last_time < last_time))
+      {
+        hit = i;
+        last_time = this->queue[i]->last_time;
+      }
+    }
+
+    uint8_t queue_count = this->queue_count();
+    if (hit != MAXQUEUE)
+    {
+      ESP_LOGD(TAG, "oldest queue element is: %d/%d", hit, queue_count);
+    }
+    else if (queue_count > 0)
+    {
+      hit = 0;
+      ESP_LOGD(TAG, "oldest queue element is first: %d/%d", hit, queue_count);
+    }
+    else
+    {
+        // Queue is empty
+    }
+    this->queue[hit]->status();
+
+    return hit;
+  }
+
+  uint8_t EHMTX::find_last_clock()
+  {
+    uint8_t hit = MAXQUEUE;
+    if (EHMTXv2_CLOCK_INTERVAL > 0)
+    {
+      float ts = this->get_tick();
+      for (size_t i = 0; i < MAXQUEUE; i++)
+      {
+        if (this->night_mode)
+        {
+          bool skip = true;
+          for (auto id : EHMTXv2_CONF_NIGHT_MODE_SCREENS)
+          {
+            if (this->queue[i]->mode == id)
+            {
+              skip = false;
+            }
+          }
+          if (skip)
+          {
+            continue;
+          }
+        }
+
+        if ((this->queue[i]->mode == MODE_ICON_DATE_TIME) || (this->queue[i]->mode == MODE_ICON_CLOCK))
+        {
+          if (ts > (this->queue[i]->last_time + EHMTXv2_CLOCK_INTERVAL * 1000.0))
+          {
+            hit = i;
+          }
+          break;
+        }
+      }
+      if (hit != MAXQUEUE)
+      {
+        ESP_LOGD(TAG, "forced clock_interval");
+      }
+    }
+    return hit;
+  }
+
+  void EHMTX::remove_expired_queue_element()
+  {
+    if (this->clock->now().is_valid())
+    {
+      std::string infotext;
+      float ts = this->get_tick() + static_cast<float>(EHMTXv2_SCROLL_INTERVAL); // Force remove expired queue element
+
+      for (size_t i = 0; i < MAXQUEUE; i++)
+      {
+        if ((this->queue[i]->endtime > 0.0) && (this->queue[i]->endtime < ts))
+        {
+          this->queue[i]->endtime = 0.0;
+          if (this->queue[i]->mode != MODE_EMPTY)
+          {
+            ESP_LOGD(TAG, "remove expired queue element: slot %d: mode: %d icon_name: %s text: %s", i, this->queue[i]->mode, this->queue[i]->icon_name.c_str(), this->queue[i]->text.c_str());
+            for (auto *t : on_expired_screen_triggers_)
+            {
+              infotext = "";
+              switch (this->queue[i]->mode)
+              {
+              case MODE_EMPTY:
+                break;
+              case MODE_BLANK:
+                infotext = "blank";
+                break;
+              case MODE_COLOR:
+                infotext = "color";
+                break;
+              case MODE_FULL_SCREEN:
+                infotext = "full screen: " + this->queue[i]->icon_name;
+                break;
+              case MODE_ICON_SCREEN:
+              case MODE_RAINBOW_ICON:
+              case MODE_ICON_CLOCK:
+              case MODE_ICON_DATE:
+              case MODE_ICON_DATE_TIME:
+              case MODE_ICON_PROGRESS:
+              case MODE_ICON_TEXT_SCREEN:
+              case MODE_RAINBOW_ICON_TEXT_SCREEN:
+              case MODE_TEXT_PROGRESS:
+              case MODE_PROGNOSIS_SCREEN:
+                infotext = this->queue[i]->icon_name.c_str();
+                break;
+              case MODE_ALERT_SCREEN:
+              case MODE_FLASH_ALERT_SCREEN:
+              case MODE_RAINBOW_ALERT_SCREEN:
+                infotext = ("alert: " + this->queue[i]->icon_name).c_str();
+                break;
+              case MODE_RAINBOW_TEXT:
+              case MODE_TEXT_SCREEN:
+                infotext = "text";
+                break;
+              default:
+                break;
+              }
+              t->process(this->queue[i]->icon_name, infotext);
+            }
+          }
+          this->queue[i]->mode = MODE_EMPTY;
+          if (this->queue[i]->sbitmap != NULL)
+          {
+            delete[] this->queue[i]->sbitmap;
+            this->queue[i]->sbitmap = nullptr;
+          }
+        }
+      }
+    }
+  }
+
+  uint8_t EHMTX::queue_count()
+  {
+    float ts = this->get_tick();
+    uint8_t c = 0;
+    for (size_t i = 0; i < MAXQUEUE; i++)
+    {
+      if (this->queue[i]->mode == MODE_EMPTY)
+      {
+        continue;
+      }
+
+      if (this->night_mode)
+      {
+        bool skip = true;
+        for (auto id : EHMTXv2_CONF_NIGHT_MODE_SCREENS)
+        {
+          if (this->queue[i]->mode == id)
+          {
+            skip = false;
+          }
+        }
+        if (skip)
+        {
+          continue;
+        }
+      }
+
+      if (this->queue[i]->endtime > ts)
+      {
+        c++;
+      }
+    }
+
+    return c;
+  }
+
+  // tick in milliseconds
+  float EHMTX::get_tick()
+  {
+#ifdef USE_ESP32
+    struct timespec spec;
+    clock_gettime(CLOCK_MONOTONIC, &spec);
+    // tv_sec  - seconds
+    // tv_nsec - nanoseconds
+    return static_cast<float>(spec.tv_sec * 1000 + spec.tv_nsec / 1000000);
+#else
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    // tv_sec  - seconds
+    // tv_usec - microseconds
+    return static_cast<float>(tv.tv_sec * 1000 + tv.tv_usec / 1000);
+#endif
+  }
+
+void EHMTX::tick_next_screen(float ts)
+  {
+    if (this->screen_pointer == MAXQUEUE)
+    {
+      return;
+    }
+
+    this->queue[this->screen_pointer]->last_time = ts;
+
+    #ifdef EHMTXv2_MULTICOLOR_TEXT
+    if (this->text_for_draw.size() > 0) {
+      std::vector<std::tuple<Color,std::string,uint16_t>>().swap(this->text_for_draw);
+    }
+    #endif
+
+    if (this->queue[this->screen_pointer]->icon < this->icon_count)
+    {
+      this->icons[this->queue[this->screen_pointer]->icon]->set_frame(0);
+    }
+    this->next_action_time = this->queue[this->screen_pointer]->last_time + this->queue[this->screen_pointer]->screen_time_;
+    
+    // --- JAVÍTÁS KEZDETE ---
+    // A ciklus magába foglalja a teljes logikát
+    for (auto *t : on_next_screen_triggers_)
+    {
+        // A t->process() paraméter nélküli hívást kivettük, mert nem illik ide
+        
+        ESP_LOGD(TAG, "on_next_screen trigger");
+        std::string infotext = "";
+        switch (this->queue[this->screen_pointer]->mode)
+        {
+        case MODE_EMPTY:
+          infotext = "empty";
+          break;
+        case MODE_BLANK:
+          infotext = "blank";
+          break;
+        case MODE_COLOR:
+          infotext = "color";
+          break;
+        case MODE_FULL_SCREEN:
+          infotext = "full screen " + this->queue[this->screen_pointer]->icon_name;
+          break;
+        case MODE_ICON_SCREEN:
+        case MODE_RAINBOW_ICON:
+        case MODE_ICON_CLOCK:
+        case MODE_ICON_DATE:
+        case MODE_ICON_DATE_TIME:
+        case MODE_ICON_PROGRESS:
+        case MODE_ICON_TEXT_SCREEN:
+        case MODE_RAINBOW_ICON_TEXT_SCREEN:
+        case MODE_TEXT_PROGRESS:
+        case MODE_PROGNOSIS_SCREEN:
+          infotext = this->queue[this->screen_pointer]->icon_name.c_str();
+          break;
+        case MODE_ALERT_SCREEN:
+        case MODE_FLASH_ALERT_SCREEN:
+        case MODE_RAINBOW_ALERT_SCREEN:
+          infotext = ("alert: " + this->queue[this->screen_pointer]->icon_name).c_str();
+          break;
+        case MODE_RAINBOW_TEXT:
+        case MODE_TEXT_SCREEN:
+          infotext = "text";
+          break;
+        default:
+          break;
+        }
+        // A trigger hívása a cikluson BELÜL történik
+        t->process(infotext, this->queue[this->screen_pointer]->text);
+    }
+    // --- JAVÍTÁS VÉGE ---
+  }
+
+  void EHMTX::tick()
+  {
+    if (millis() - this->last_rainbow_time >= EHMTXv2_RAINBOW_INTERVAL)
+    {
+      this->hue_++;
+      this->rainbow_color = esphome::light::ESPHSVColor(this->hue_, 255, 240).to_rgb();
+      this->last_rainbow_time = millis();
+    }
+
+    if (this->is_running && this->clock->now().is_valid())
+    {
+      float ts = this->get_tick();
+
+      if (millis() - this->last_scroll_time >= EHMTXv2_SCROLL_INTERVAL)
+      {
+        this->scroll_step++;
+        this->last_scroll_time = millis();
+        if (this->scroll_step > this->queue[this->screen_pointer]->scroll_reset)
+        {
+          this->scroll_step = 0;
+        }
+      }
+
+      if (ts > this->next_action_time)
+      {
+        this->remove_expired_queue_element();
+        this->screen_pointer = this->find_last_clock();
+        this->scroll_step = 0;
+        this->ticks_ = 0;
+#ifdef EHMTXv2_USE_VERTICAL_SCROLL
+        this->vertical_scroll = false;
+#endif
+
+        if (this->screen_pointer == MAXQUEUE)
+        {
+          this->screen_pointer = find_oldest_queue_element();
+        }
+
+        if (this->screen_pointer != MAXQUEUE)
+        {
+          tick_next_screen(ts);
+        }
+        else
+        {
+          this->next_action_time = ts + 15000 ; // come back in 15 Seconds
+          for (auto *t : on_empty_queue_triggers_)
+          {
+              ESP_LOGD(TAG, "on_empty_queue trigger");
+              t->process();
+          }
+          // check if automation has enqueued a new element
+          this->screen_pointer = find_oldest_queue_element();
+          if (this->screen_pointer != MAXQUEUE)
+          {
+            tick_next_screen(ts);
+          }
+        }
+      }
+
+      // blend handling
+#ifdef EHMTXv2_BLEND_STEPS
+      if ((this->ticks_ <= EHMTXv2_BLEND_STEPS) && (this->brightness_ >= 50) && (this->queue_count() > 1))
+      {
+        uint8_t b = this->brightness_;
+        uint8_t current_step = ((b - 50) / 205) * (EHMTXv2_BLEND_STEPS - EHMTXv2_BLEND_STEPS / 2) + EHMTXv2_BLEND_STEPS / 2;
+        if (this->ticks_ <= current_step)
+        {
+          float br = std::lerp(0, (float)b / 255, (float)this->ticks_ / current_step);
+          this->display->get_light()->set_correction(br, br, br);
+        }
+      }
+      else
+#endif
+      {
+        if (this->brightness_ != this->target_brightness_)
+        {
+          this->brightness_ = this->brightness_ + (this->target_brightness_ < this->brightness_ ? -1 : 1);
+          float br = (float)this->brightness_ / (float)255;
+          this->display->get_light()->set_correction(br, br, br);
+        }
+      }
+      this->ticks_++;
+    }
+    else
+    {
+      // H - Piros
+      this->display->print(3, 1, this->default_font, Color(255, 0, 0), "H");
+      // O - Narancs
+      this->display->print(9, 1, this->default_font, Color(255, 165, 0), "O");
+      // L - Sárga
+      this->display->print(15, 1, this->default_font, Color(255, 255, 0), "L");
+      // L - Zöld
+      this->display->print(21, 1, this->default_font, Color(0, 255, 0), "L");
+      // Y - Cián
+      this->display->print(27, 1, this->default_font, Color(0, 255, 255), "Y");
+
+      // 8 - Kék
+      this->display->print(37, 1, this->default_font, Color(0, 0, 255), "8");
+      // x - Lila
+      this->display->print(43, 1, this->default_font, Color(128, 0, 128), "X");
+      // 6 - Magenta
+      this->display->print(49, 1, this->default_font, Color(255, 0, 255), "6");
+      // 4 - Fehér
+      this->display->print(55, 1, this->default_font, Color(255, 255, 255), "4");
+    }
+  }
+
+  void EHMTX::skip_screen()
+  {
+    this->next_action_time = this->get_tick() - 1000.0;
+  }
+
+  void EHMTX::hold_screen(int32_t time)
+  {
+    this->next_action_time = this->get_tick() + time * 1000.0;
+  }
+
+  void EHMTX::get_status()
+  {
+    time_t ts = this->clock->now().timestamp;
+    ESP_LOGI(TAG, "status time: %d.%d.%d %02d:%02d", this->clock->now().day_of_month,
+             this->clock->now().month, this->clock->now().year,
+             this->clock->now().hour, this->clock->now().minute);
+    ESP_LOGI(TAG, "status brightness: %d (0..255)", this->brightness_);
+    ESP_LOGI(TAG, "status date format: %s", EHMTXv2_DATE_FORMAT);
+    ESP_LOGI(TAG, "screen_pointer: %d", this->screen_pointer);
+    if (this->screen_pointer != MAXQUEUE)
+    {
+      ESP_LOGI(TAG, "current screen mode: %d", this->queue[this->screen_pointer]->mode);
+    }
+    else
+    {
+      ESP_LOGI(TAG, "screenpointer at max");
+    }
+    ESP_LOGI(TAG, "status time format: %s", EHMTXv2_TIME_FORMAT);
+    ESP_LOGI(TAG, "status date format: %s", EHMTXv2_DATE_FORMAT);
+    ESP_LOGI(TAG, "status display %s", this->show_display ? ESPHOME_F("on") : ESPHOME_F("off"));
+    ESP_LOGI(TAG, "status night mode %s", this->night_mode ? ESPHOME_F("on") : ESPHOME_F("off"));
+    ESP_LOGI(TAG, "status weekday accent %s", this->weekday_accent ? ESPHOME_F("on") : ESPHOME_F("off"));
+    ESP_LOGI(TAG, "status replace time and date %s", this->replace_time_date_active ? ESPHOME_F("on") : ESPHOME_F("off"));
+
+    this->queue_status();
+  }
+
+  void EHMTX::queue_status()
+  {
+    uint8_t empty = 0;
+    for (uint8_t i = 0; i < MAXQUEUE; i++)
+    {
+      if (this->queue[i]->mode != MODE_EMPTY)
+        this->queue[i]->status();
+      else
+        empty++;
+    }
+    if (empty > 0)
+      ESP_LOGI(TAG, "queue: %d empty slots", empty);
+  }
+
+  void EHMTX::set_default_font(display::BaseFont *font)
+  {
+    this->default_font = font;
+  }
+
+  void EHMTX::set_special_font(display::BaseFont *font)
+  {
+    this->special_font = font;
+  }
+
+  void EHMTX::set_replace_time_date_active(bool b)
+  {
+    this->replace_time_date_active = b;
+    ESP_LOGI(TAG, "replace_time_date %s", b ? ESPHOME_F("on") : ESPHOME_F("off"));
+  }
+
+  std::string EHMTX::replace_time_date(std::string time_date) // Replace Time Date Strings / Trip5
+  {
+    std::string replace_from_string = EHMTXv2_REPLACE_TIME_DATE_FROM;
+    std::string replace_to_string = EHMTXv2_REPLACE_TIME_DATE_TO;
+    std::string replace_from_arr[50]; // AM + PM + 7 Days + 12 Months = 21 but 50 to be super-safe
+    std::string replace_to_arr[50];
+    std::string replace_from;
+    std::string replace_to;
+    uint16_t replace_arr_n;
+    if (replace_from_string != "" && replace_to_string != "")
+    {
+      std::istringstream iss_from(replace_from_string);
+      std::vector<std::string> replace_from_arr;
+      for (std::string s_from; iss_from >> s_from;)
+        replace_from_arr.push_back(s_from);
+      replace_arr_n = replace_from_arr.size();
+      std::istringstream iss_to(replace_to_string);
+      std::vector<std::string> replace_to_arr;
+      for (std::string s_to; iss_to >> s_to;)
+        replace_to_arr.push_back(s_to);
+      if (replace_to_arr.size() < replace_arr_n)
+      {
+        replace_arr_n = replace_to_arr.size();
+      }
+      uint16_t k = 0;
+      do
+      {
+        std::vector<std::uint8_t> data(time_date.begin(), time_date.end());
+        std::vector<std::uint8_t> pattern(replace_from_arr[k].begin(), replace_from_arr[k].end());
+        std::vector<std::uint8_t> replaceData(replace_to_arr[k].begin(), replace_to_arr[k].end());
+        std::vector<std::uint8_t>::iterator itr;
+        while ((itr = std::search(data.begin(), data.end(), pattern.begin(), pattern.end())) != data.end())
+        {
+          data.erase(itr, itr + pattern.size());
+          data.insert(itr, replaceData.begin(), replaceData.end());
+        }
+        time_date = std::string(data.begin(), data.end());
+        k++;
+      } while (k < replace_arr_n);
+    }
+    return time_date;
+  }
+
+  void EHMTX::del_screen(std::string icon_name, int32_t mode)
+  {
+    for (uint8_t i = 0; i < MAXQUEUE; i++)
+    {
+      if (this->queue[i]->mode == mode)
+      {
+        bool force = true;
+        std::string ic = get_icon_name(icon_name);
+        std::string id = icon_name.find("|") != std::string::npos ? get_screen_id(icon_name) : ic;
+        ESP_LOGD(TAG, "del_screen: %s -> icon: %s id: %s in position: %s mode: %d", icon_name.c_str(), ic.c_str(), id.c_str(), this->queue[i]->icon_name.c_str(), mode);
+
+        if ((mode == MODE_ICON_SCREEN) ||
+            (mode == MODE_ICON_CLOCK) ||
+            (mode == MODE_ICON_DATE) ||
+            (mode == MODE_FULL_SCREEN) ||
+            (mode == MODE_RAINBOW_ICON) ||
+            (mode == MODE_ICON_PROGRESS) ||
+            (mode == MODE_ICON_TEXT_SCREEN) ||
+            (mode == MODE_RAINBOW_ICON_TEXT_SCREEN) ||
+            (mode == MODE_TEXT_PROGRESS) ||
+            (mode == MODE_PROGNOSIS_SCREEN))
+        {
+          if (this->string_has_ending(id, "*"))
+          {
+            std::string comparename = id.substr(0, id.length() - 1);
+
+            if (this->queue[i]->icon_name.rfind(comparename, 0) != 0)
+            {
+              force = false;
+            }
+          }
+          else if (strcmp(this->queue[i]->icon_name.c_str(), id.c_str()) != 0)
+          {
+            force = false;
+          }
+        }
+
+        if (force)
+        {
+          ESP_LOGW(TAG, "del_screen: slot %d deleted", i);
+          this->queue[i]->mode = MODE_EMPTY;
+          this->queue[i]->endtime = 0.0;
+          this->queue[i]->last_time = 0.0;
+          if (this->queue[i]->sbitmap != NULL)
+          {
+            delete[] this->queue[i]->sbitmap;
+            this->queue[i]->sbitmap = nullptr;
+          }
+          if (i == this->screen_pointer)
+          {
+            this->next_action_time = this->get_tick();
+          }
+        }
+      }
+    }
+  }
+
+  void EHMTX::alert_screen(std::string iconname, std::string text, int32_t screen_time, bool default_font, int32_t r, int32_t g, int32_t b)
+  {
+    uint8_t icon = this->find_icon(iconname.c_str());
+
+    if (icon == MAXICONS)
+    {
+      ESP_LOGW(TAG, "icon %d/%s not found => default: 0", icon, iconname.c_str());
+      icon = 0;
+      for (auto *t : on_icon_error_triggers_)
+      {
+        t->process(iconname);
+      }
+    }
+    EHMTX_queue *screen = this->find_mode_queue_element(MODE_ALERT_SCREEN);
+
+    screen->text = text;
+
+    screen->text_color = Color(r, g, b);
+    screen->default_font = default_font;
+    screen->mode = MODE_ALERT_SCREEN;
+    screen->icon_name = iconname;
+    screen->icon = icon;
+    screen->calc_scroll_time(text, screen_time);
+    // time needed for scrolling
+    screen->endtime = this->get_tick() + screen->screen_time_;
+    for (auto *t : on_add_screen_triggers_)
+    {
+      t->process(screen->icon_name, (uint8_t)screen->mode);
+    }
+    ESP_LOGD(TAG, "alert screen icon: %d iconname: %s text: %s screen_time: %d", icon, iconname.c_str(), text.c_str(), screen_time);
+    screen->status();
+
+    force_screen(iconname, MODE_ALERT_SCREEN);
+  }
+
+  void EHMTX::flash_alert_screen(std::string iconname, std::string text, int32_t screen_time, bool default_font, int32_t r, int32_t g, int32_t b)
+  {
+    uint8_t icon = this->find_icon(iconname.c_str());
+
+    if (icon == MAXICONS)
+    {
+      ESP_LOGW(TAG, "icon %d/%s not found => default: 0", icon, iconname.c_str());
+      icon = 0;
+      for (auto *t : on_icon_error_triggers_)
+      {
+        t->process(iconname);
+      }
+    }
+    EHMTX_queue *screen = this->find_mode_queue_element(MODE_FLASH_ALERT_SCREEN);
+
+    screen->text = text;
+    screen->text_color = Color(r, g, b); // Ez lesz az alap szín (pl. piros)
+    screen->default_font = default_font;
+    screen->mode = MODE_FLASH_ALERT_SCREEN;
+    screen->icon_name = iconname;
+    screen->icon = icon;
+    screen->calc_scroll_time(text, screen_time);
+    
+    screen->endtime = this->get_tick() + screen->screen_time_;
+    for (auto *t : on_add_screen_triggers_)
+    {
+      t->process(screen->icon_name, (uint8_t)screen->mode);
+    }
+    ESP_LOGD(TAG, "flash alert screen icon: %d iconname: %s text: %s screen_time: %d", icon, iconname.c_str(), text.c_str(), screen_time);
+    screen->status();
+
+    force_screen(iconname, MODE_FLASH_ALERT_SCREEN);
+  }
+
+  void EHMTX::rainbow_alert_screen(std::string iconname, std::string text, int32_t screen_time, bool default_font)
+  {
+    uint8_t icon = this->find_icon(iconname.c_str());
+
+    if (icon == MAXICONS)
+    {
+      ESP_LOGW(TAG, "icon %d/%s not found => default: 0", icon, iconname.c_str());
+      icon = 0;
+      for (auto *t : on_icon_error_triggers_)
+      {
+        t->process(iconname);
+      }
+    }
+    EHMTX_queue *screen = this->find_mode_queue_element(MODE_RAINBOW_ALERT_SCREEN);
+
+    screen->text = text;
+
+    screen->default_font = default_font;
+    screen->mode = MODE_RAINBOW_ALERT_SCREEN;
+    screen->icon_name = iconname;
+    screen->icon = icon;
+    screen->calc_scroll_time(text, screen_time);
+    // time needed for scrolling
+    screen->endtime = this->get_tick() + screen->screen_time_;
+    for (auto *t : on_add_screen_triggers_)
+    {
+      t->process(screen->icon_name, (uint8_t)screen->mode);
+    }
+    ESP_LOGD(TAG, "alert screen rainbow icon: %d iconname: %s text: %s screen_time: %d", icon, iconname.c_str(), text.c_str(), screen_time);
+    screen->status();
+
+    force_screen(iconname, MODE_RAINBOW_ALERT_SCREEN);
+  }
+
+  void EHMTX::icon_screen(std::string iconname, std::string text, int32_t lifetime, int32_t screen_time, bool default_font, int32_t r, int32_t g, int32_t b)
+  {
+    std::string ic = get_icon_name(iconname);
+    std::string id = get_screen_id(iconname);
+
+    uint8_t icon = this->find_icon(ic.c_str());
+
+    if (icon == MAXICONS)
+    {
+      ESP_LOGW(TAG, "icon %d/%s not found => default: 0", icon, ic.c_str());
+      icon = 0;
+      for (auto *t : on_icon_error_triggers_)
+      {
+        t->process(ic);
+      }
+    }
+    EHMTX_queue *screen = this->find_mode_icon_queue_element(MODE_ICON_SCREEN, id);
+
+    screen->text = text;
+    screen->text_color = Color(r, g, b);
+    screen->default_font = default_font;
+    screen->mode = MODE_ICON_SCREEN;
+    screen->icon_name = id;
+    screen->icon = icon;
+    screen->calc_scroll_time(text, screen_time);
+    screen->endtime = this->get_tick() + (lifetime > 0 ? lifetime * 60000.0 : screen->screen_time_);
+    for (auto *t : on_add_screen_triggers_)
+    {
+      t->process(screen->icon_name, (uint8_t)screen->mode);
+    }
+    ESP_LOGD(TAG, "icon screen icon: %d iconname: %s text: %s lifetime: %d screen_time: %d", icon, iconname.c_str(), text.c_str(), lifetime, screen_time);
+    screen->status();
+  }
+
+  void EHMTX::text_screen_progress(std::string text, std::string value, int32_t progress, int32_t lifetime, int32_t screen_time, bool default_font, bool value_color_as_progress, int32_t r, int32_t g, int32_t b)
+  {
+    EHMTX_queue *screen = this->find_mode_icon_queue_element(MODE_TEXT_PROGRESS, text);
+
+    screen->icon_name = text;
+    screen->text = value;
+    screen->text_color = Color(r, g, b);
+    screen->default_font = default_font;
+    screen->mode = MODE_TEXT_PROGRESS;
+    screen->icon = value_color_as_progress;
+    screen->progress = (progress > 100) ? 100 : (progress < -100) ? -100
+                                                                  : progress;
+    screen->screen_time_ = screen_time * 1000.0;
+    screen->endtime = this->get_tick() + (lifetime > 0 ? lifetime * 60000.0 : screen->screen_time_);
+#ifdef EHMTXv2_USE_VERTICAL_SCROLL
+    screen->pixels_ = 0;
+    screen->scroll_reset = 64;
+#endif
+    for (auto *t : on_add_screen_triggers_)
+    {
+      t->process(screen->icon_name, (uint8_t)screen->mode);
+    }
+    ESP_LOGD(TAG, "text progress screen text: %s value: %s progress %d lifetime: %d screen_time: %d", text.c_str(), value.c_str(), progress, lifetime, screen_time);
+    screen->status();
+  }
+
+  void EHMTX::icon_screen_progress(std::string iconname, std::string text, int32_t progress, int32_t lifetime, int32_t screen_time, bool default_font, int32_t r, int32_t g, int32_t b)
+  {
+    std::string ic = get_icon_name(iconname);
+    std::string id = get_screen_id(iconname);
+
+    uint8_t icon = this->find_icon(ic.c_str());
+
+    if (icon == MAXICONS)
+    {
+      ESP_LOGW(TAG, "icon %d/%s not found => default: 0", icon, ic.c_str());
+      icon = 0;
+      for (auto *t : on_icon_error_triggers_)
+      {
+        t->process(ic);
+      }
+    }
+    EHMTX_queue *screen = this->find_mode_icon_queue_element(MODE_ICON_PROGRESS, id);
+
+    screen->text = text;
+    screen->text_color = Color(r, g, b);
+    screen->default_font = default_font;
+    screen->mode = MODE_ICON_PROGRESS;
+    screen->icon_name = id;
+    screen->icon = icon;
+    screen->progress = (progress > 100) ? 100 : (progress < -100) ? -100
+                                                                  : progress;
+    screen->calc_scroll_time(text, screen_time);
+    screen->endtime = this->get_tick() + (lifetime > 0 ? lifetime * 60000.0 : screen->screen_time_);
+    for (auto *t : on_add_screen_triggers_)
+    {
+      t->process(screen->icon_name, (uint8_t)screen->mode);
+    }
+    ESP_LOGD(TAG, "icon progress screen icon: %d iconname: %s text: %s progress %d lifetime: %d screen_time: %d", icon, iconname.c_str(), text.c_str(), progress, lifetime, screen_time);
+    screen->status();
+  }
+
+  void EHMTX::set_progressbar_color(std::string iconname, int32_t mode, int32_t r, int32_t g, int32_t b, int32_t bg_r, int32_t bg_g, int32_t bg_b)
+  {
+    EHMTX_queue *screen = this->find_mode_icon_queue_element(mode, get_screen_id(iconname));
+
+    screen->progressbar_color = (r + g + b == C_BLACK) ? esphome::display::COLOR_OFF : Color((uint8_t)r, (uint8_t)g, (uint8_t)b);
+    screen->progressbar_back_color = (bg_r + bg_g + bg_b == C_BLACK) ? esphome::display::COLOR_OFF : Color((uint8_t)bg_r, (uint8_t)bg_g, (uint8_t)bg_b);
+
+    ESP_LOGD(TAG, "progress screen mode: %d iconname: %s color progressbar: r: %d g: %d b: %d background: r: %d g: %d b: %d", mode, iconname.c_str(), r, g, b, bg_r, bg_g, bg_b);
+    screen->status();
+  }
+
+  void EHMTX::icon_clock(std::string iconname, int32_t lifetime, int32_t screen_time, bool default_font, int32_t r, int32_t g, int32_t b)
+  {
+    std::string ic = get_icon_name(iconname);
+    std::string id = get_screen_id(iconname);
+
+    uint8_t icon = this->find_icon(ic.c_str());
+
+    if (icon == MAXICONS)
+    {
+      ESP_LOGW(TAG, "icon %d/%s not found => default: 0", icon, ic.c_str());
+      icon = 0;
+      for (auto *t : on_icon_error_triggers_)
+      {
+        t->process(ic);
+      }
+    }
+    EHMTX_queue *screen = this->find_mode_icon_queue_element(MODE_ICON_CLOCK, id);
+
+    screen->text_color = Color(r, g, b);
+    screen->default_font = default_font;
+    screen->mode = MODE_ICON_CLOCK;
+    screen->icon_name = id;
+    screen->icon = icon;
+    screen->screen_time_ = screen_time * 1000.0;
+    screen->endtime = this->get_tick() + (lifetime > 0 ? lifetime * 60000.0 : screen->screen_time_);
+#ifdef EHMTXv2_USE_VERTICAL_SCROLL
+    screen->pixels_ = 0;
+    screen->scroll_reset = 64;
+#endif
+    for (auto *t : on_add_screen_triggers_)
+    {
+      t->process(screen->icon_name, (uint8_t)screen->mode);
+    }
+    ESP_LOGD(TAG, "icon clock icon: %d iconname: %s lifetime: %d screen_time: %d", icon, iconname.c_str(), lifetime, screen_time);
+    screen->status();
+  }
+
+  void EHMTX::icon_date(std::string iconname, int32_t lifetime, int32_t screen_time, bool default_font, int32_t r, int32_t g, int32_t b)
+  {
+    std::string ic = get_icon_name(iconname);
+    std::string id = get_screen_id(iconname);
+
+    uint8_t icon = this->find_icon(ic.c_str());
+
+    if (icon == MAXICONS)
+    {
+      ESP_LOGW(TAG, "icon %d/%s not found => default: 0", icon, ic.c_str());
+      icon = 0;
+      for (auto *t : on_icon_error_triggers_)
+      {
+        t->process(ic);
+      }
+    }
+    EHMTX_queue *screen = this->find_mode_icon_queue_element(MODE_ICON_DATE, id);
+
+    screen->text_color = Color(r, g, b);
+    screen->default_font = default_font;
+    screen->mode = MODE_ICON_DATE;
+    screen->icon_name = id;
+    screen->icon = icon;
+    screen->screen_time_ = screen_time * 1000.0;
+    screen->endtime = this->get_tick() + (lifetime > 0 ? lifetime * 60000.0 : screen->screen_time_);
+#ifdef EHMTXv2_USE_VERTICAL_SCROLL
+    screen->pixels_ = 0;
+    screen->scroll_reset = 64;
+#endif
+    for (auto *t : on_add_screen_triggers_)
+    {
+      t->process(screen->icon_name, (uint8_t)screen->mode);
+    }
+    ESP_LOGD(TAG, "icon date icon: %d iconname: %s lifetime: %d screen_time: %d", icon, iconname.c_str(), lifetime, screen_time);
+    screen->status();
+  }
+
+  void EHMTX::icon_date_time_screen(std::string iconname, int32_t lifetime, int32_t screen_time, bool default_font, int32_t r, int32_t g, int32_t b)
+  {
+    std::string ic = get_icon_name(iconname);
+    std::string id = get_screen_id(iconname);
+    uint8_t icon = this->find_icon(ic.c_str());
+
+    if (icon == MAXICONS)
+    {
+      ESP_LOGW(TAG, "icon %d/%s not found => default: 0", icon, ic.c_str());
+      icon = 0;
+      for (auto *t : on_icon_error_triggers_) { t->process(ic); }
+    }
+    
+    // Keressük a sort (az új móddal)
+    EHMTX_queue *screen = this->find_mode_icon_queue_element(MODE_ICON_DATE_TIME, id);
+
+    screen->text_color = Color(r, g, b);
+    screen->default_font = default_font;
+    screen->mode = MODE_ICON_DATE_TIME;
+    screen->icon_name = id;
+    screen->icon = icon;
+    
+    screen->screen_time_ = screen_time * 1000.0;
+    screen->endtime = this->get_tick() + (lifetime > 0 ? lifetime * 60000.0 : screen->screen_time_);
+#ifdef EHMTXv2_USE_VERTICAL_SCROLL
+    screen->pixels_ = 0;
+    screen->scroll_reset = 64;
+#endif
+    for (auto *t : on_add_screen_triggers_)
+    {
+      t->process(screen->icon_name, (uint8_t)screen->mode);
+    }
+    ESP_LOGD(TAG, "icon date time screen icon: %d", icon);
+    screen->status();
+  }
+
+  void EHMTX::rainbow_icon_screen(std::string iconname, std::string text, int32_t lifetime, int32_t screen_time, bool default_font)
+  {
+    std::string ic = get_icon_name(iconname);
+    std::string id = get_screen_id(iconname);
+
+    uint8_t icon = this->find_icon(ic.c_str());
+
+    if (icon == MAXICONS)
+    {
+      ESP_LOGW(TAG, "icon %d/%s not found => default: 0", icon, ic.c_str());
+      icon = 0;
+      for (auto *t : on_icon_error_triggers_)
+      {
+        t->process(ic);
+      }
+    }
+    EHMTX_queue *screen = this->find_mode_icon_queue_element(MODE_RAINBOW_ICON, id);
+
+    screen->text = text;
+
+    screen->default_font = default_font;
+    screen->mode = MODE_RAINBOW_ICON;
+    screen->icon_name = id;
+    screen->icon = icon;
+    screen->calc_scroll_time(text, screen_time);
+    screen->endtime = this->get_tick() + (lifetime > 0 ? lifetime * 60000.0 : screen->screen_time_);
+    for (auto *t : on_add_screen_triggers_)
+    {
+      t->process(screen->icon_name, (uint8_t)screen->mode);
+    }
+    ESP_LOGD(TAG, "rainbow icon screen icon: %d iconname: %s text: %s lifetime: %d screen_time: %d", icon, iconname.c_str(), text.c_str(), lifetime, screen_time);
+    screen->status();
+  }
+
+  void EHMTX::blank_screen(int32_t lifetime, int32_t showtime)
+  {
+    EHMTX_queue *screen = this->find_free_queue_element();
+    screen->mode = MODE_BLANK;
+    screen->screen_time_ = showtime * 1000.0;
+    screen->endtime = this->get_tick() + (lifetime > 0 ? lifetime * 60000.0 : screen->screen_time_);
+    for (auto *t : on_add_screen_triggers_)
+    {
+      t->process("blank", (uint8_t)screen->mode);
+    }
+    screen->status();
+  }
+
+  void EHMTX::color_screen(int32_t lifetime, int32_t showtime, int32_t r, int32_t g, int32_t b)
+  {
+    EHMTX_queue *screen = this->find_free_queue_element();
+    screen->mode = MODE_COLOR;
+    screen->screen_time_ = showtime * 1000.0;
+    screen->text_color = Color(r, g, b);
+    screen->endtime = this->get_tick() + (lifetime > 0 ? lifetime * 60000.0 : screen->screen_time_);
+    for (auto *t : on_add_screen_triggers_)
+    {
+      t->process("color", (uint8_t)screen->mode);
+    }
+    screen->status();
+  }
+
+  void EHMTX::text_screen(std::string text, int32_t lifetime, int32_t screen_time, bool default_font, int32_t r, int32_t g, int32_t b)
+  {
+    EHMTX_queue *screen = this->find_free_queue_element();
+
+    screen->text = text;
+    screen->default_font = default_font;
+    screen->text_color = Color(r, g, b);
+    screen->mode = MODE_TEXT_SCREEN;
+    screen->calc_scroll_time(text, screen_time);
+    screen->endtime = this->get_tick() + (lifetime > 0 ? lifetime * 60000.0 : screen->screen_time_);
+    screen->status();
+  }
+
+  void EHMTX::rainbow_text_screen(std::string text, int32_t lifetime, int32_t screen_time, bool default_font)
+  {
+    EHMTX_queue *screen = this->find_free_queue_element();
+    screen->text = text;
+    screen->default_font = default_font;
+    screen->mode = MODE_RAINBOW_TEXT;
+    screen->calc_scroll_time(text, screen_time);
+    screen->endtime = this->get_tick() + (lifetime > 0 ? lifetime * 60000.0 : screen->screen_time_);
+    screen->status();
+  }
+
+  void EHMTX::full_screen(std::string iconname, int32_t lifetime, int32_t screen_time)
+  {
+    uint8_t icon = this->find_icon(iconname.c_str());
+
+    if (icon == MAXICONS)
+    {
+      ESP_LOGW(TAG, "full screen: icon %d not found => default: 0", icon);
+      for (auto *t : on_icon_error_triggers_)
+      {
+        t->process(iconname);
+      }
+      icon = 0;
+    }
+    EHMTX_queue *screen = this->find_icon_queue_element(icon);
+
+    screen->mode = MODE_FULL_SCREEN;
+    screen->icon = icon;
+    screen->icon_name = iconname;
+    screen->screen_time_ = screen_time * 1000.0;
+    screen->endtime = this->get_tick() + (lifetime > 0 ? lifetime * 60000.0 : screen->screen_time_);
+#ifdef EHMTXv2_USE_VERTICAL_SCROLL
+    screen->pixels_ = 0;
+    screen->scroll_reset = 64;
+#endif
+    for (auto *t : on_add_screen_triggers_)
+    {
+      t->process(screen->icon_name, (uint8_t)screen->mode);
+    }
+    ESP_LOGD(TAG, "full screen: icon: %d iconname: %s lifetime: %d screen_time:%d ", icon, iconname.c_str(), lifetime, screen_time);
+    screen->status();
+  }
+
+  void EHMTX::icon_text_screen(std::string iconname, std::string text, int32_t lifetime, int32_t screen_time, bool default_font, int32_t r, int32_t g, int32_t b)
+  {
+    std::string ic = get_icon_name(iconname);
+    std::string id = get_screen_id(iconname);
+
+    uint8_t icon = this->find_icon(ic.c_str());
+
+    if (icon == MAXICONS)
+    {
+      ESP_LOGW(TAG, "icon %d/%s not found => default: 0", icon, ic.c_str());
+      icon = 0;
+      for (auto *t : on_icon_error_triggers_)
+      {
+        t->process(ic);
+      }
+    }
+    EHMTX_queue *screen = this->find_mode_icon_queue_element(MODE_ICON_TEXT_SCREEN, id);
+
+    screen->text = text;
+    screen->text_color = Color(r, g, b);
+    screen->default_font = default_font;
+    screen->mode = MODE_ICON_TEXT_SCREEN;
+    screen->icon_name = id;
+    screen->icon = icon;
+    screen->calc_scroll_time(text, screen_time);
+    screen->endtime = this->get_tick() + (lifetime > 0 ? lifetime * 60000.0 : screen->screen_time_);
+    for (auto *t : on_add_screen_triggers_)
+    {
+      t->process(screen->icon_name, (uint8_t)screen->mode);
+    }
+    ESP_LOGD(TAG, "icon text screen icon: %d iconname: %s text: %s lifetime: %d screen_time: %d", icon, iconname.c_str(), text.c_str(), lifetime, screen_time);
+    screen->status();
+  }
+
+  void EHMTX::rainbow_icon_text_screen(std::string iconname, std::string text, int32_t lifetime, int32_t screen_time, bool default_font)
+  {
+    std::string ic = get_icon_name(iconname);
+    std::string id = get_screen_id(iconname);
+
+    uint8_t icon = this->find_icon(ic.c_str());
+
+    if (icon == MAXICONS)
+    {
+      ESP_LOGW(TAG, "icon %d/%s not found => default: 0", icon, ic.c_str());
+      icon = 0;
+      for (auto *t : on_icon_error_triggers_)
+      {
+        t->process(ic);
+      }
+    }
+    EHMTX_queue *screen = this->find_mode_icon_queue_element(MODE_RAINBOW_ICON_TEXT_SCREEN, id);
+
+    screen->text = text;
+    screen->default_font = default_font;
+    screen->mode = MODE_RAINBOW_ICON_TEXT_SCREEN;
+    screen->icon_name = id;
+    screen->icon = icon;
+    screen->calc_scroll_time(text, screen_time);
+    screen->endtime = this->get_tick() + (lifetime > 0 ? lifetime * 60000.0 : screen->screen_time_);
+    for (auto *t : on_add_screen_triggers_)
+    {
+      t->process(screen->icon_name, (uint8_t)screen->mode);
+    }
+    ESP_LOGD(TAG, "rainbow icon text screen icon: %d iconname: %s text: %s lifetime: %d screen_time: %d", icon, iconname.c_str(), text.c_str(), lifetime, screen_time);
+    screen->status();
+  }
+
+  void EHMTX::icon_prognosis_screen(std::string iconname, std::string text, std::string prognosis, int32_t lifetime, int32_t screen_time, bool default_font)
+  {
+    this->icon_prognosis_screen_rgb(iconname, text, prognosis, lifetime, screen_time, default_font, C_BLACK, C_BLACK, C_BLACK);
+  }
+
+  void EHMTX::icon_prognosis_screen_rgb(std::string iconname, std::string text, std::string prognosis, int32_t lifetime, int32_t screen_time, bool default_font, int32_t r, int32_t g, int32_t b)
+  {
+    std::string ic = get_icon_name(iconname);
+    std::string id = get_screen_id(iconname);
+
+    uint8_t icon = this->find_icon(ic.c_str());
+
+    if (icon == MAXICONS)
+    {
+      ESP_LOGW(TAG, "icon %d/%s not found => default: 0", icon, ic.c_str());
+      icon = 0;
+      for (auto *t : on_icon_error_triggers_)
+      {
+        t->process(ic);
+      }
+    }
+
+    EHMTX_queue *screen = this->find_mode_icon_queue_element(MODE_PROGNOSIS_SCREEN, id);
+
+    screen->text = text;
+    screen->text_color = Color(r, g, b);
+    screen->default_font = default_font;
+    screen->mode = MODE_PROGNOSIS_SCREEN;
+    screen->icon_name = id;
+    screen->icon = icon;
+    screen->calc_scroll_time(text, screen_time);
+    screen->endtime = this->get_tick() + (lifetime > 0 ? lifetime * 60000.0 : screen->screen_time_);
+
+    if (screen->sbitmap == NULL)
+    {
+      screen->sbitmap = new Color[64];
+    }
+
+    JsonDocument doc;
+    deserializeJson(doc, prognosis);
+    JsonArray array = doc.as<JsonArray>();
+    if (array.size() > 72) {
+      return;
+    }
+    // extract the 24 color values
+    uint8_t red = 0;
+    uint8_t gre = 0;
+    uint8_t blu = 0;
+
+    uint16_t i = 0;
+    for (JsonVariant v : array)
+    {
+      if (i % 3 == 0)
+      {
+        red = v.as<int>();
+      }
+      if (i % 3 == 1)
+      {
+        gre = v.as<int>();
+      }
+      if (i % 3 == 2)
+      {
+        blu = v.as<int>();
+
+        screen->sbitmap[static_cast<uint8_t>(i / 3)] = Color(red, gre, blu);
+      }
+
+      i++;
+    }
+
+    if (r + g + b == C_BLACK)
+    {
+      screen->text_color = screen->sbitmap[0];
+    }
+
+    for (auto *t : on_add_screen_triggers_)
+    {
+      t->process(screen->icon_name, (uint8_t)screen->mode);
+    }
+    ESP_LOGD(TAG, "icon prognosis screen prognosis: %s", prognosis.c_str());
+    ESP_LOGD(TAG, "icon prognosis screen icon: %d iconname: %s text: %s prognosis: %d lifetime: %d screen_time: %d", icon, iconname.c_str(), text.c_str(), static_cast<uint8_t>(i / 3), lifetime, screen_time);
+    screen->status();
+  }
+
+  EHMTX_queue *EHMTX::find_icon_queue_element(uint8_t icon)
+  {
+    for (size_t i = 0; i < MAXQUEUE; i++)
+    {
+      if (((this->queue[i]->mode == MODE_ICON_SCREEN) ||
+           (this->queue[i]->mode == MODE_RAINBOW_ICON) ||
+           (this->queue[i]->mode == MODE_ICON_PROGRESS)) &&
+          (this->queue[i]->icon == icon))
+      {
+        ESP_LOGD(TAG, "icon_screen: found by icon");
+        return this->queue[i];
+      }
+    }
+    return this->find_free_queue_element();
+  }
+
+  EHMTX_queue *EHMTX::find_free_queue_element()
+  {
+    float ts = this->get_tick();
+    for (size_t i = 0; i < MAXQUEUE; i++)
+    {
+      if (this->queue[i]->endtime < ts)
+      {
+        ESP_LOGD(TAG, "free_screen: found by endtime %d", i);
+        return this->queue[i];
+      }
+    }
+    return this->queue[0];
+  }
+
+  EHMTX_queue *EHMTX::find_mode_queue_element(uint8_t mode)
+  {
+    for (size_t i = 0; i < MAXQUEUE; i++)
+    {
+      if (this->queue[i]->mode == mode)
+      {
+        ESP_LOGD(TAG, "find screen: found by mode %d", i);
+        return this->queue[i];
+      }
+    }
+    return this->find_free_queue_element();
+  }
+
+  EHMTX_queue *EHMTX::find_mode_icon_queue_element(uint8_t mode, std::string name)
+  {
+    for (size_t i = 0; i < MAXQUEUE; i++)
+    {
+      if (this->queue[i]->mode == mode && strcmp(this->queue[i]->icon_name.c_str(), name.c_str()) == 0)
+      {
+        ESP_LOGD(TAG, "find screen: found by mode %d icon %s", i, name.c_str());
+        return this->queue[i];
+      }
+    }
+    return this->find_free_queue_element();
+  }
+
+  void EHMTX::set_show_seconds(bool b)
+  {
+    this->show_seconds = b;
+    ESP_LOGI(TAG, "%sshow seconds", b ? ESPHOME_F("") : ESPHOME_F("don't "));
+  }
+
+  void EHMTX::set_show_day_of_week(bool b)
+  {
+    this->show_day_of_week = b;
+    ESP_LOGI(TAG, "%sshow day of week", b ? ESPHOME_F("") : ESPHOME_F("don't "));
+  }
+
+  void EHMTX::set_brightness(int32_t value)
+  {
+    if (value < 256)
+    {
+      this->target_brightness_ = value;
+      float br = (float)value / (float)255;
+      ESP_LOGI(TAG, "set_brightness %d => %.2f %%", value, 100 * br);
+    }
+  }
+
+  uint8_t EHMTX::get_brightness()
+  {
+    return this->brightness_;
+  }
+
+  void EHMTX::set_clock_time(uint16_t t)
+  {
+    this->clock_time = t;
+  }
+
+  void EHMTX::set_display(addressable_light::AddressableLightDisplay *disp)
+  {
+    this->display = disp;
+    this->show_display = true;
+    this->night_mode = false;
+    this->weekday_accent = false;
+    ESP_LOGD(TAG, "set_display");
+  }
+
+  void EHMTX::set_clock(time::RealTimeClock *clock)
+  {
+    this->clock = clock;
+    ESP_LOGD(TAG, "set_clock");
+  }
+
+#define max3(x, y, z) ((x) > (y) ? ((x) > (z) ? (x) : (z)) : ((y) > (z) ? (y) : (z)))
+
+  void EHMTX::draw_day_of_week(int32_t ypos, bool small)
+  {
+    if (this->show_day_of_week)
+    {
+      auto dow = this->clock->now().day_of_week - 1; // SUN = 0
+
+      Color accent_color = esphome::display::COLOR_OFF;
+      if (this->weekday_accent && this->brightness_ < 50)
+      {
+        uint8_t max_diff = max3(this->today_color.r, this->today_color.g, this->today_color.b) - max3(this->weekday_color.r, this->weekday_color.g, this->weekday_color.b);
+        accent_color = this->weekday_color + max_diff;
+      }
+
+      if (!small)
+      {
+        uint8_t start_x = 11;
+        
+        for (uint8_t i = 0; i <= 6; i++)
+        {
+          if (((!EHMTXv2_WEEK_START) && (dow == i)) ||
+              ((EHMTXv2_WEEK_START) && ((dow == (i + 1)) || ((dow == 0 && i == 6)))))
+          {
+            this->display->line(start_x + i * 6, ypos + 7, start_x + i * 6 + 3, ypos + 7, this->today_color);
+          }
+          else
+          {
+            this->display->line(start_x + i * 6, ypos + 7, start_x + i * 6 + 3, ypos + 7, this->weekday_color);
+            if (accent_color != esphome::display::COLOR_OFF)
+            {
+              this->display->line(start_x + i * 6 + 2, ypos + 7, start_x + i * 6 + 2, ypos + 7, accent_color);
+            }
+          }
+        }
+      }
+else
+      {
+        // Itt is beállítunk egy kezdő eltolást (offset)
+        // Mivel ez az ág akkor fut le, ha ikon van (small=true), 
+        // a 12-es pixelről indítjuk, hogy az ikon (8-10 pixel) után kezdődjön.
+        uint8_t start_x = 12; 
+
+        for (uint8_t i = 0; i <= 6; i++)
+        {
+          // i * 6 biztosítja a 4 pixel vonal + 2 pixel szünet ritmust
+          uint16_t x_start = start_x + (i * 6);
+          uint16_t x_end = x_start + 3; // +3, hogy összesen 4 pixel széles legyen
+
+          if (((!EHMTXv2_WEEK_START) && (dow == i)) ||
+              ((EHMTXv2_WEEK_START) && ((dow == (i + 1)) || ((dow == 0 && i == 6)))))
+          {
+            // MAI NAP
+            this->display->line(x_start, ypos + 7, x_end, ypos + 7, this->today_color);
+          }
+          else
+          {
+            // TÖBBI NAP
+            this->display->line(x_start, ypos + 7, x_end, ypos + 7, this->weekday_color);
+            
+            if (accent_color != esphome::display::COLOR_OFF)
+            {
+              // Az accent (kiemelő) pixel a vonal 3. pixelére kerül
+              this->display->line(x_start + 2, ypos + 7, x_start + 2, ypos + 7, accent_color);
+            }
+          }
+        }
+      }
+    }
+  }
+
+#ifdef EHMTXv2_ADV_CLOCK
+  void EHMTX::set_clock_infotext_color(int32_t lr, int32_t lg, int32_t lb, int32_t rr, int32_t rg, int32_t rb, bool df, int32_t y_offset)
+  {
+    this->info_clock_lcolor = Color((uint8_t)lr, (uint8_t)lg, (uint8_t)lb);
+    this->info_clock_rcolor = Color((uint8_t)rr, (uint8_t)rg, (uint8_t)rb);
+    this->info_clock_font = df;
+    this->info_clock_y_offset = y_offset;
+    ESP_LOGD(TAG, "info clock text color left: r: %d g: %d b: %d right: r: %d g: %d b: %d y_offset %d", lr, lg, lb, rr, rg, rb, y_offset);
+  }
+
+  void EHMTX::set_date_infotext_color(int32_t lr, int32_t lg, int32_t lb, int32_t rr, int32_t rg, int32_t rb, bool df, int32_t y_offset)
+  {
+    this->info_date_lcolor = Color((uint8_t)lr, (uint8_t)lg, (uint8_t)lb);
+    this->info_date_rcolor = Color((uint8_t)rr, (uint8_t)rg, (uint8_t)rb);
+    this->info_date_font = df;
+    this->info_date_y_offset = y_offset;
+    ESP_LOGD(TAG, "info date text color left: r: %d g: %d b: %d right: r: %d g: %d b: %d y_offset %d", lr, lg, lb, rr, rg, rb, y_offset);
+  }
+
+  void EHMTX::set_adv_clock_color(int32_t hr, int32_t hg, int32_t hb, int32_t mr, int32_t mg, int32_t mb, int32_t sr, int32_t sg, int32_t sb)
+  {
+    this->hour_color = Color((uint8_t)hr, (uint8_t)hg, (uint8_t)hb);
+    this->minutes_color = Color((uint8_t)mr, (uint8_t)mg, (uint8_t)mb);
+    this->spacer_color = Color((uint8_t)sr, (uint8_t)sg, (uint8_t)sb);
+    ESP_LOGD(TAG, "advanced clock color hour: r: %d g: %d b: %d minutes: r: %d g: %d b: %d spacer: r: %d g: %d b: %d", hr, hg, hb, mr, mg, mb, sr, sg, sb);
+  }
+
+  bool EHMTX::draw_clock(std::string format, esphome::display::BaseFont *font, Color color, int32_t xpos, int32_t ypos)
+  {
+    std::regex rgx{"^(%[HI])(.)(%M)(.)?(%S|%p)?$"};
+    std::smatch match;
+    if (!std::regex_search(format, match, rgx))
+      return false;
+
+  #ifdef EHMTXv2_FLIP_FLOP
+    static uint8_t hours;
+    static uint8_t minutes;
+    static uint8_t seconds;
+    static uint8_t ystep = 0;
+
+    uint8_t h = this->clock->now().hour;
+    uint8_t m = this->clock->now().minute;
+    uint8_t s = this->clock->now().second;
+  #endif
+
+    std::vector<std::string> parts;
+    std::vector<uint8_t> len;
+    std::string sep = "";
+
+    uint8_t full_length = 0;
+
+    for (int32_t i = 1; i < match.length(); i++)
+    {
+      std::string output = match[i].str();
+
+      if (output.length() > 0)
+      {
+        if (output.find("%") != std::string::npos)
+        {
+          if (this->replace_time_date_active && output == "%p") // check for replace active
+          {
+            output = this->clock->now().strftime(output);
+            output = this->replace_time_date(output);
+
+  #ifdef EHMTXv2_FLIP_FLOP
+            seconds = s; // Disable Flip Flop for Seconds if AM/PM
+  #endif
+          }
+          else
+          {
+  #ifdef EHMTXv2_FLIP_FLOP
+            if (output == "%I" && h > 12) // check for 12-hour clock
+            {
+              h = h - 12; // Switch to 12-hour clock
+            }
+  #endif
+            output = this->clock->now().strftime(output);
+          }
+        }
+        else if (sep == "")
+        {
+          sep = output;
+        }
+
+        parts.push_back(output);
+        len.push_back(output.length() > 0 ? this->GetTextWidth(font, "%s", output.c_str()) : 0);
+        full_length += len.back();
+      }
+    }
+
+    int32_t x = xpos - full_length / 2;
+    for (int32_t i = 0; i < parts.size(); i++)
+    {
+      if (parts.at(i).length() > 0)
+      {
+        if (!(this->show_seconds && parts.at(i) == sep && (this->clock->now().second % 2 == 1)))
+        {
+          Color c_ = i == 0 ? this->hour_color : i == 2           ? this->minutes_color
+                                             : parts.at(i) == sep ? this->spacer_color
+                                                                  : color;
+          if (c_.r + c_.g + c_.b == C_BLACK)
+          {
+            c_ = color;
+          }
+
+  #ifdef EHMTXv2_FLIP_FLOP
+          bool step = false;
+          uint8_t y = ystep / EHMTXv2_FLIP_FLOP_SPEED;
+
+          if (i == 0) // Hours
+          {
+            if (h != hours)
+            {
+              step = true;
+              if (h / 10 != hours / 10)
+              {
+                this->display->printf(x, ypos + y - 8, font, c_, display::TextAlign::BASELINE_LEFT, "%d", (int)(h / 10));
+                this->display->printf(x, ypos + y, font, c_, display::TextAlign::BASELINE_LEFT, "%d", (int)(hours / 10));
+              }
+              else
+              {
+                this->display->printf(x, ypos, font, c_, display::TextAlign::BASELINE_LEFT, "%d", (int)(h / 10));
+              }
+              uint8_t xstep = this->GetTextWidth(font, "%c", parts.at(i).c_str()[1]);
+              if (h % 10 != hours % 10)
+              {
+                this->display->printf(x + xstep, ypos + y - 8, font, c_, display::TextAlign::BASELINE_LEFT, "%d", (int)(h % 10));
+                this->display->printf(x + xstep, ypos + y, font, c_, display::TextAlign::BASELINE_LEFT, "%d", (int)(hours % 10));
+              }
+              else
+              {
+                this->display->printf(x + xstep, ypos, font, c_, display::TextAlign::BASELINE_LEFT, "%d", (int)(h % 10));
+              }
+            }
+            else
+            {
+              this->display->printf(x, ypos, font, c_, display::TextAlign::BASELINE_LEFT, "%s", parts.at(i).c_str());
+            }
+          }
+          else if (i == 2) // Minutes
+          {
+            if (m != minutes)
+            {
+              step = true;
+              if (m / 10 != minutes / 10)
+              {
+                this->display->printf(x, ypos + y - 8, font, c_, display::TextAlign::BASELINE_LEFT, "%d", (int)(m / 10));
+                this->display->printf(x, ypos + y, font, c_, display::TextAlign::BASELINE_LEFT, "%d", (int)(minutes / 10));
+              }
+              else
+              {
+                this->display->printf(x, ypos, font, c_, display::TextAlign::BASELINE_LEFT, "%d", (int)(m / 10));
+              }
+              uint8_t xstep = this->GetTextWidth(font, "%c", parts.at(i).c_str()[1]);
+              if (m % 10 != minutes % 10)
+              {
+                this->display->printf(x + xstep, ypos + y - 8, font, c_, display::TextAlign::BASELINE_LEFT, "%d", (int)(m % 10));
+                this->display->printf(x + xstep, ypos + y, font, c_, display::TextAlign::BASELINE_LEFT, "%d", (int)(minutes % 10));
+              }
+              else
+              {
+                this->display->printf(x + xstep, ypos, font, c_, display::TextAlign::BASELINE_LEFT, "%d", (int)(m % 10));
+              }
+            }
+            else
+            {
+              this->display->printf(x, ypos, font, c_, display::TextAlign::BASELINE_LEFT, "%s", parts.at(i).c_str());
+            }
+          }
+          else if (i == 4) // Seconds
+          {
+            if (s != seconds)
+            {
+              step = true;
+              if (s / 10 != seconds / 10)
+              {
+                this->display->printf(x, ypos + y - 8, font, c_, display::TextAlign::BASELINE_LEFT, "%d", (int)(s / 10));
+                this->display->printf(x, ypos + y, font, c_, display::TextAlign::BASELINE_LEFT, "%d", (int)(seconds / 10));
+              }
+              else
+              {
+                this->display->printf(x, ypos, font, c_, display::TextAlign::BASELINE_LEFT, "%d", (int)(s / 10));
+              }
+              uint8_t xstep = this->GetTextWidth(font, "%c", parts.at(i).c_str()[1]);
+              if (s % 10 != seconds % 10)
+              {
+                this->display->printf(x + xstep, ypos + y - 8, font, c_, display::TextAlign::BASELINE_LEFT, "%d", (int)(s % 10));
+                this->display->printf(x + xstep, ypos + y, font, c_, display::TextAlign::BASELINE_LEFT, "%d", (int)(seconds % 10));
+              }
+              else
+              {
+                this->display->printf(x + xstep, ypos, font, c_, display::TextAlign::BASELINE_LEFT, "%d", (int)(s % 10));
+              }
+            }
+            else
+            {
+              this->display->printf(x, ypos, font, c_, display::TextAlign::BASELINE_LEFT, "%s", parts.at(i).c_str());
+            }
+          }
+          else
+          {
+            this->display->printf(x, ypos, font, c_, display::TextAlign::BASELINE_LEFT, "%s", parts.at(i).c_str());
+          }
+
+          if (step)
+          {
+            ystep++;
+            if (ystep == 8 * EHMTXv2_FLIP_FLOP_SPEED)
+            {
+              hours   = h;
+              minutes = m;
+              seconds = s;
+              ystep = 0;
+            }
+          }
+  #else
+          this->display->printf(x, ypos, font, c_, display::TextAlign::BASELINE_LEFT, "%s", parts.at(i).c_str());
+  #endif
+        }
+        x += len.at(i);
+      }
+    }
+
+    return true;
+  }
+
+  bool EHMTX::draw_date(std::string format, esphome::display::BaseFont *font, Color color, int32_t xpos, int32_t ypos)
+  {
+    std::regex rgx{"^(%\\D)(.+)(%\\D)(.+)?(?:(%\\D)(.+)?)?$"};
+    std::smatch match;
+    if (!std::regex_search(format, match, rgx))
+      return false;
+
+    std::vector<std::string> parts;
+    std::vector<uint8_t> len;
+    std::string sep = "";
+
+    uint8_t full_length = 0;
+
+    for (int32_t i = 1; i < match.length(); i++)
+    {
+      std::string output = match[i].str();
+
+      if (output.length() > 0)
+      {
+        if (output.find("%") != std::string::npos)
+        {
+          if (this->replace_time_date_active && (output == "%a" || output == "%A" || output == "%b" || output == "%B")) // check for replace active
+          {
+            output = this->clock->now().strftime(output);
+            output = this->replace_time_date(output);
+          }
+          else
+          {
+            output = this->clock->now().strftime(output);
+          }
+        }
+        else if (sep == "")
+        {
+          sep = output;
+        }
+
+        parts.push_back(output);
+        len.push_back(output.length() > 0 ? this->GetTextWidth(font, "%s", output.c_str()) : 0);
+        full_length += len.back();
+      }
+    }
+
+    uint8_t x = xpos - full_length / 2;
+    for (int32_t i = 0; i < parts.size(); i++)
+    {
+      if (parts.at(i).length() > 0)
+      {
+        Color c_ = parts.at(i) == sep ? this->spacer_color : color;
+        if (c_.r + c_.g + c_.b == C_BLACK)
+        {
+          c_ = color;
+        }
+        this->display->printf(x, ypos, font, c_, display::TextAlign::BASELINE_LEFT, "%s", parts.at(i).c_str());
+
+        x += len.at(i);
+      }
+    }
+
+    return true;
+  }
+#endif
+
+  void EHMTX::draw_text(std::string text, esphome::display::BaseFont *font, Color color, int32_t xpos, int32_t ypos)
+  {
+  #ifdef EHMTXv2_MULTICOLOR_TEXT
+    std::size_t pos = text.find("#");
+    if (pos == std::string::npos)
+    {
+      this->display->print(xpos, ypos, font, color, esphome::display::TextAlign::BASELINE_LEFT, text.c_str());
+      return;
+    }
+
+    if (this->text_for_draw.size() == 0) {
+      std::regex regex ("(#[A-Fa-f0-9]{6})|(.+?)");
+
+      std::regex_iterator<std::string::iterator> next ( text.begin(), text.end(), regex );
+      std::regex_iterator<std::string::iterator> end;
+    
+      std::vector<std::string> res;
+    
+      std::string iter = "";
+      while (next != end)
+      {
+        std::string part = next->str();
+        if (part.length() == 7)
+        {
+          if (iter.length() > 0)
+          {
+            res.push_back (iter);
+            iter = "";
+          }
+          res.push_back (part);
+        }
+        else 
+        {
+          iter += part;
+        }
+        next++;
+      }
+      if (iter.length() > 0)
+      {
+        res.push_back (iter);
+      }
+      
+      Color c = color;
+      std::regex is_color ("^#[A-Fa-f0-9]{6}$");
+      for (int32_t i = 0; i < res.size(); i++)
+      {
+        if (res.at(i).length() > 0)
+        {
+          int32_t r, g, b;
+          if (res.at(i).length() == 7 && std::regex_match(res.at(i), is_color) && sscanf(&res.at(i).c_str()[1], "%02x%02x%02x", &r, &g, &b))
+          {
+            if (r + g + b > 0)
+            {
+              c = Color(r, g ,b);
+            }
+            else
+            {
+              c = color;
+            }
+          }
+          else
+          {
+            this->text_for_draw.push_back({c, res.at(i), this->GetTextWidth(font, "%s", res.at(i).c_str())});
+          }
+        }
+      }
+    }
+
+    int32_t x = xpos;
+    for(const auto &i : this->text_for_draw) {
+      this->display->print(x, ypos, font, std::get<0>(i), esphome::display::TextAlign::BASELINE_LEFT, std::get<1>(i).c_str());
+      x += std::get<2>(i);
+    }
+  #else
+    this->display->print(xpos, ypos, font, color, esphome::display::TextAlign::BASELINE_LEFT, text.c_str());
+  #endif
+  }
+
+#ifdef EHMTXv2_RAINBOW_SHIMMER
+  void EHMTX::draw_rainbow_text(std::string text, esphome::display::BaseFont *font, int32_t xpos, int32_t ypos)
+  {
+    uint16_t str_len  = GetTextCharCount(text);
+    uint16_t x        = 0;
+
+    for (uint16_t i = 0; i < str_len; i++)
+    {
+      uint8_t hue = this->hue_ + remap((int)i, 0, (int)str_len - 1, 0, 255);
+      Color color = esphome::light::ESPHSVColor(hue, 255, 240).to_rgb();
+      this->display->printf(x + xpos, ypos, font,
+                            color,
+                            display::TextAlign::BASELINE_LEFT, 
+                            "%s", GetTextChar(text, i).c_str());
+      x += this->GetTextWidth(font, "%s", GetTextChar(text, i).c_str());
+    }
+  }
+#endif
+
+  void EHMTX::set_weekday_char_count(uint8_t i)
+  {
+    this->weekday_char_count = i;
+  }
+
+  std::string EHMTX::GetWeekdayChar(int32_t position)
+  {
+    return GetTextChar(EHMTXv2_WEEKDAYTEXT, position);
+  }
+
+  std::string EHMTX::GetTextChar(std::string text, int32_t position)
+  {
+    std::string text_char = "";
+    int32_t pos = 0;
+
+    for (int32_t i = 0; i < strlen(text.c_str());)
+    {
+      text_char = text_char + text[i];
+      if (text[i] & 0x80)
+      {
+        text_char = text_char + text[i + 1];
+        if (text[i] & 0x20)
+        {
+          text_char = text_char + text[i + 2];
+          if (text[i] & 0x10)
+          {
+            text_char = text_char + text[i + 3];
+            i += 4;
+          }
+          else
+          {
+            i += 3;
+          }
+        }
+        else
+        {
+          i += 2;
+        }
+      }
+      else
+      {
+        i += 1;
+      }
+
+      if (pos == position)
+      {
+        return text_char;
+      }
+      text_char = "";
+      pos++;
+    }
+
+    return "";
+  }
+
+#ifdef EHMTXv2_RAINBOW_SHIMMER
+  int32_t EHMTX::GetTextCharCount(std::string text)
+  {
+    int32_t count = 0;
+  
+    for (int32_t i = 0; i < strlen(text.c_str());)
+    {
+      if(text[i] & 0x80) 
+      {
+        if(text[i] & 0x20) 
+        {
+          if(text[i] & 0x10) 
+          {
+            i += 4;
+          } 
+          else 
+          {
+            i += 3;
+          }
+        } 
+        else 
+        {
+          i += 2;
+        }
+      }
+      else
+      {
+        i += 1;
+      }
+      count++;
+    }
+
+    return count;
+  }
+#endif
+
+  int32_t EHMTX::GetTextBounds(esphome::display::BaseFont *font, const char *buffer)
+  {
+    int x = 0;      // A pointer to store the returned x coordinate of the upper left corner in.
+    int y = 0;      // A pointer to store the returned y coordinate of the upper left corner in.
+    int width = 0;  // A pointer to store the returned text width in.
+    int height = 0; // A pointer to store the returned text height in.
+    this->display->get_text_bounds(0, 0, buffer, font, esphome::display::TextAlign::TOP_LEFT, &x, &y, &width, &height);
+    return width;
+  }
+
+  int32_t EHMTX::GetTextWidth(esphome::display::BaseFont *font, const char *formatting, const char raw_char)
+  {
+    char temp_buffer[80];
+    sprintf(temp_buffer, formatting, raw_char);
+    return GetTextBounds(font, temp_buffer);
+  }
+
+  int32_t EHMTX::GetTextWidth(esphome::display::BaseFont *font, const char *formatting, const char *raw_text)
+  {
+    char temp_buffer[80];
+    sprintf(temp_buffer, formatting, raw_text);
+    return GetTextBounds(font, temp_buffer);
+  }
+
+  int32_t EHMTX::GetTextWidth(esphome::display::BaseFont *font, const char *formatting, const int32_t raw_int)
+  {
+    char temp_buffer[80];
+    sprintf(temp_buffer, formatting, raw_int);
+    return GetTextBounds(font, temp_buffer);
+  }
+
+  int32_t EHMTX::GetTextWidth(esphome::display::BaseFont *font, const char *formatting, const float raw_float)
+  {
+    char temp_buffer[80];
+    sprintf(temp_buffer, formatting, raw_float);
+    return GetTextBounds(font, temp_buffer);
+  }
+
+  int32_t EHMTX::GetTextWidth(esphome::display::BaseFont *font, const char *formatting, esphome::ESPTime time)
+  {
+    auto c_tm = time.to_c_tm();
+    size_t buffer_length = 80;
+    char temp_buffer[buffer_length];
+    strftime(temp_buffer, buffer_length, formatting, &c_tm);
+    return GetTextBounds(font, temp_buffer);
+  }
+
+  uint32_t EHMTX::IntToBits(uint32_t data, uint32_t newBitValues, unsigned nbits, unsigned startbit)
+  {
+      uint32_t mask = (1UL << nbits) - 1;
+      uint32_t smask = ~(mask << startbit);
+      data = (data & smask) | ((newBitValues & mask) << startbit);
+      return data;
+  }
+
+  uint32_t EHMTX::BitsToInt(uint32_t source, unsigned from, unsigned to) 
+  {
+    unsigned mask = ((1UL << (to - from + 1)) - 1) << from;
+    return (source & mask) >> from;
+  }
+
+  void EHMTX::dump_config()
+  {
+    ESP_LOGCONFIG(TAG, "EspHoMatriXv2 version: %s", EHMTX_VERSION);
+    ESP_LOGCONFIG(TAG, "Icons: %d of %d", this->icon_count, MAXICONS);
+    ESP_LOGCONFIG(TAG, "Clock interval: %d s", EHMTXv2_CLOCK_INTERVAL);
+    ESP_LOGCONFIG(TAG, "Date format: %s", EHMTXv2_DATE_FORMAT);
+    ESP_LOGCONFIG(TAG, "Time format: %s", EHMTXv2_TIME_FORMAT);
+    ESP_LOGCONFIG(TAG, "Interval (ms) scroll: %d", EHMTXv2_SCROLL_INTERVAL);
+    if (this->show_day_of_week)
+    {
+      ESP_LOGCONFIG(TAG, "Show day of week");
+    }
+#ifdef EHMTXv2_USE_RTL
+    ESP_LOGCONFIG(TAG, "RTL activated");
+#endif
+#ifdef EHMTXv2_BLEND_STEPS
+    ESP_LOGCONFIG(TAG, "Fade in activated: %d steps", EHMTXv2_BLEND_STEPS);
+#endif
+    ESP_LOGCONFIG(TAG, "Weekstart: %s", EHMTXv2_WEEK_START ? ESPHOME_F("Monday") : ESPHOME_F("Sunday"));
+    ESP_LOGCONFIG(TAG, "Weekdays: %s Count: %d", EHMTXv2_WEEKDAYTEXT, this->weekday_char_count);
+    ESP_LOGCONFIG(TAG, "Display: %s", this->show_display ? ESPHOME_F("On") : ESPHOME_F("Off"));
+    ESP_LOGCONFIG(TAG, "Night mode: %s", this->night_mode ? ESPHOME_F("On") : ESPHOME_F("Off"));
+    ESP_LOGCONFIG(TAG, "Weekday accent: %s", this->weekday_accent ? ESPHOME_F("On") : ESPHOME_F("Off"));
+    ESP_LOGCONFIG(TAG, "Replace Time and Date: %s", this->replace_time_date_active ? ESPHOME_F("On") : ESPHOME_F("Off"));
+    if (this->replace_time_date_active)
+    {
+      ESP_LOGCONFIG(TAG, "Replace from: %s", EHMTXv2_REPLACE_TIME_DATE_FROM);
+      ESP_LOGCONFIG(TAG, "Replace to  : %s", EHMTXv2_REPLACE_TIME_DATE_TO);
+    }
+  }
+
+  void EHMTX::add_icon(EHMTX_Icon *icon)
+  {
+    this->icons[this->icon_count] = icon;
+    ESP_LOGD(TAG, "add_icon no.: %d name: %s frame_duration: %d ms", this->icon_count, icon->name.c_str(), icon->frame_duration);
+    this->icon_count++;
+  }
+
+  void EHMTX::draw_alarm()
+  {
+    uint8_t size = this->BitsToInt(this->display_indicator, 0, 2);
+    // Minden X koordinátát csökkentettünk 2-vel (63->61, 62->60, 61->59)
+    if (size > 2)
+    {
+      this->display->line(62, 2, 60, 0, this->alarm_color);
+    }
+    if (size > 1)
+    {
+      this->display->draw_pixel_at(61, 0, this->alarm_color);
+      this->display->draw_pixel_at(62, 1, this->alarm_color);
+    }
+    if (size > 0)
+    {
+      this->display->draw_pixel_at(62, 0, this->alarm_color);
+    }
+  }
+
+#ifdef EHMTXv2_RBINDICATOR
+  void EHMTX::draw_rindicator()
+  {
+    uint8_t size = this->BitsToInt(this->display_indicator, 7, 9);
+    // Minden X koordinátát csökkentettünk 2-vel
+    if (size > 2)
+    {
+      this->display->line(62, 5, 60, 7, this->rbindicator_color);
+    }
+
+    if (size > 1)
+    {
+      this->display->draw_pixel_at(61, 7, this->rbindicator_color);
+      this->display->draw_pixel_at(62, 6, this->rbindicator_color);
+    }
+
+    if (size > 0)
+    {
+      this->display->draw_pixel_at(62, 7, this->rbindicator_color);
+    }
+  }
+#endif
+
+void HOT EHMTX::draw()
+  {
+    if ((this->is_running) && (this->show_display))
+    {
+      // 1. Kirajzoljuk magát a képernyőt (az aktuális tartalmat)
+      if (this->screen_pointer != MAXQUEUE)
+      {
+        this->queue[this->screen_pointer]->draw();
+      }
+
+      // 2. Eldöntjük, kellenek-e az extra rétegek (indikátorok, gauge)
+      // akkor NEM kellenek, ha teljes képernyős módban vagyunk
+      bool show_overlays = (this->queue[this->screen_pointer]->mode != MODE_TEXT_PROGRESS &&
+                            this->queue[this->screen_pointer]->mode != MODE_FULL_SCREEN &&
+                            this->queue[this->screen_pointer]->mode != MODE_COLOR &&
+                            this->queue[this->screen_pointer]->mode != MODE_BLANK &&
+                            this->queue[this->screen_pointer]->mode != MODE_ALERT_SCREEN &&
+                            this->queue[this->screen_pointer]->mode != MODE_FLASH_ALERT_SCREEN &&
+                            this->queue[this->screen_pointer]->mode != MODE_RAINBOW_ALERT_SCREEN);
+
+      // Ha kellenek a rétegek, akkor kirajzoljuk őket sorban:
+      
+#ifdef EHMTXv2_GAUGE
+      if (show_overlays)
+      {
+        this->draw_gauge();
+      }
+#endif
+
+#ifdef EHMTXv2_RBINDICATOR
+      if (show_overlays)
+      {
+        this->draw_rindicator();
+      }
+#endif
+
+      if (show_overlays)
+      {
+        this->draw_alarm();
+      }
+    }
+  }
+
+  void EHMTXStartRunningTrigger::process()
+  {
+    this->trigger();
+  }
+
+  void EHMTXEmptyQueueTrigger::process()
+  {
+    this->trigger();
+  }
+
+  void EHMTXNextScreenTrigger::process(std::string iconname, std::string text)
+  {
+    this->trigger(iconname, text);
+  }
+
+  void EHMTXAddScreenTrigger::process(std::string iconname, uint8_t mode)
+  {
+    this->trigger(iconname, mode);
+  }
+
+  void EHMTXIconErrorTrigger::process(std::string iconname)
+  {
+    this->trigger(iconname);
+  }
+
+  void EHMTXExpiredScreenTrigger::process(std::string iconname, std::string text)
+  {
+    this->trigger(iconname, text);
+  }
+
+  void EHMTXShowDisplayTrigger::process(bool state)
+  {
+    this->trigger(state);
+  }
+
+  void EHMTXNightModeTrigger::process(bool state)
+  {
+    this->trigger(state);
+  }
+}
