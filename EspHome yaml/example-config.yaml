@@ -13,6 +13,11 @@ substitutions:
   friendly_name: GF LED matrix
 
 external_components:
+#  - source:
+#      type: local
+#      path: EspHoMatrix-64x8/components
+#    components: [ehmtxv2]
+
   - source:
       type: git
       url: https://github.com/hollosipeti/EspHoMatrix-64x8
@@ -356,6 +361,10 @@ ehmtxv2:
 # This section contains Hungarian language translations! I use the device in Hungary.
   on_empty_queue:
     then:
+      - homeassistant.event:
+            event: esphome.queue_finished
+            data:
+              status: idle        
       - lambda: |-
           static int page_counter = 0;
           id(rgb8x32)->icon_date_time_screen("calendarweek", 1, 8, true, 180, 180, 255);
@@ -417,3 +426,16 @@ ehmtxv2:
           if (page_counter > 3) {
             page_counter = 0;
           }
+
+  on_next_screen:
+    - homeassistant.event:
+        event: esphome.new_screen
+        data_template:
+          iconname: !lambda "return icon.c_str();"
+          text: !lambda "return text.c_str();"
+  on_expired_screen:
+    - homeassistant.event:
+        event: esphome.new_screen
+        data_template:
+          iconname: !lambda "return icon.c_str();"
+          text: !lambda "return text.c_str();"
