@@ -295,8 +295,10 @@ ehmtxv2:
   icons: 
     - id: error     # THIS SHOULD BE FIRST!
       lameid: 40530
+    - id: attention
+      lameid: 3531
     - id: battery100
-      lameid: 6358      
+      lameid: 6358
     - id: clockicon
       lameid: 2325
     - id: calendarweek
