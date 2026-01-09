@@ -38,13 +38,12 @@ esphome:
             id(rgb8x32)->set_brightness(30);                //set default brightness if you want
             id(rgb8x32)->set_weekday_color(100,200,100);    //set dow weekday color if you want
             id(rgb8x32)->set_today_color(255,100,100);      //set dow today color if you want
-        - logger.log: "BOOT...  waiting..."
+
     - priority: -100.0
       then:
         - wait_until:
             condition:
               api.connected:
-        - logger.log: "API connected"
         - delay: 5s
         - lambda: |-
             id(rgb8x32)->set_display_on();
