@@ -1,7 +1,7 @@
 # EspHoMatrix-64x8 with ESP32
 ** Custom ESPHome configuration for 64x8 pixel LED matrix. Included the ESPHome yaml **
 
-The latest ESPHome version and ESP-IDF are used today. 04. Jan. 2026.
+The latest ESPHome version and ESP-IDF are used today. 15. Jan. 2026.
 ### This is a modified and expanded version of the excellent [EspHoMaTriXv2](https://github.com/lubeda/EspHoMaTriXv2) library.
 While the original was designed for standard 8x32 clocks, this version is specifically optimized for **double-width (64x8) displays**, allowing for more information, and better aesthetics.
 
@@ -71,6 +71,7 @@ If there is no individual information, then this is what is displayed basically.
 - CHANGE BOOT SCREEN
 - I MOVED GAUGE TO THE RIGHT SIDE
 - I MOVED THE INDICATORS LEFT TO THE GAUGE. THE SIZE OF THE INDICATORS CAN BE BETWEEN 1-3.
+- I have optimized the display and the code. So ESP provides better performance.
 
 The GAUGE has moved to the right edge. It does not interfere with the text, icons or indicators. The indicators will appear in front of the gauge.
 All indicators (that I left) are enabled. The rightmost indicators do not interfere with the text display at all.
