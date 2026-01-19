@@ -285,6 +285,7 @@ ehmtxv2:
   date_format: "%b.%d."
   show_seconds: false
 #  show_dow: false
+#  show_top_indicators: false
   default_font_id: default_font
   default_font_yoffset: 7
   special_font_id: special_font
@@ -367,7 +368,7 @@ ehmtxv2:
               status: idle    
       - lambda: |-
           static int page_counter = 0;
-          id(rgb8x32)->icon_date_time_screen("calendarweek", 1, 8, true, 180, 180, 255);
+          id(rgb8x32)->icon_date_time_screen("calendarweek", 1, 8, true, 255, 255, 150);
           switch (page_counter) {
             
             case 0: // BENTI ADATOK
