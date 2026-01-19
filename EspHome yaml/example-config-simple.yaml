@@ -268,4 +268,4 @@ ehmtxv2:
   on_empty_queue:
     then:
       - lambda: |-
-          id(rgb8x32)->icon_date_time_screen("calendarweek", 1, 8, true, 180, 180, 255);
+          id(rgb8x32)->icon_date_time_screen("calendarweek", 1, 8, true, 255, 255, 150);
