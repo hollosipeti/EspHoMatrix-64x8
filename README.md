@@ -1,7 +1,7 @@
 # EspHoMatrix-64x8 with ESP32
 ** Custom ESPHome configuration for 64x8 pixel LED matrix. Included the ESPHome yaml **
 
-The latest ESPHome version and ESP-IDF are used today. 15. Jan. 2026.
+The latest ESPHome version and ESP-IDF are used today. 19. Jan. 2026.
 ### This is a modified and expanded version of the excellent [EspHoMaTriXv2](https://github.com/lubeda/EspHoMaTriXv2) library.
 While the original was designed for standard 8x32 clocks, this version is specifically optimized for **double-width (64x8) displays**, allowing for more information, and better aesthetics.
 
@@ -53,25 +53,45 @@ Here is the wiring diagram.
 
 ## NEW FEATURES:
 
-- INCREASED DISPLAY SIZE 8X64
-- NEW SCREEN MODE: ICON_DATE_TIME and FLASH_ALERT_SCREEN
+- I increased the display size to 8x64.
+- New screen modes: ICON_DATE_TIME and FLASH_ALERT_SCREEN
+- I added six indicators to the top of the date and time display.
 
-This is the new ICON_DATE_TIME screen. This is the default for me.
+This is the new ICON_DATE_TIME screen. This is the default for me. The six indicators at the top of the display, next to the date and time display, show the status of the doors and windows on the first floor of my house.
 
-![default](media/icon_date_time_screen.jpg)
+![default](media/top_indicators.jpg)
 
 If there is no individual information, then this is what is displayed basically. Date/time, indoor temperature/humidity, weather, outdoor temperature, outdoor humidity, and wind.
 
 ![default screens](media/default_display.gif)
 
+The top indicators and the weekday dows can be disabled as needed. They can be disabled in EspHome yaml.
+
+```yaml
+ehmtxv2:
+  id: rgb8x32
+.
+.
+.
+  show_dow: false
+  show_top_indicators: false
+```
+Managing top indicators from home assistant:
+```yaml
+action: esphome.gf_led_matrix_set_top_indicator
+data:
+  state: true
+  position_between_1_and_6: 4
+```
+
 # CHANGES TO THE ORIGINAL EspHoMaTriXv2 CODE:
 ## MODIFICATIONS:
 
-- I CHANGED THE SCREEN TIME CALCULATION, IN ICON TEXT SCREEN AND RAINBOW ICON TEXT SCREEN MODE
-- CHANGE BOOT SCREEN
-- I MOVED GAUGE TO THE RIGHT SIDE
-- I MOVED THE INDICATORS LEFT TO THE GAUGE. THE SIZE OF THE INDICATORS CAN BE BETWEEN 1-3.
-- I have optimized the display and the code. So ESP provides better performance.
+- I changed the screen time calculation in Icon Text Screen and Rainbow Icon Text Screen modes.
+- I changed the boot screen.
+- I moved the gauge to the right side.
+- I moved the indicators to the left of the gauge. The size of the indicators can be set between 1 and 3.
+- I have optimized the display and the code. So ESP provides better performance. Removed all ESP8266 items.
 
 The GAUGE has moved to the right edge. It does not interfere with the text, icons or indicators. The indicators will appear in front of the gauge.
 All indicators (that I left) are enabled. The rightmost indicators do not interfere with the text display at all.
@@ -91,9 +111,10 @@ All indicators (that I left) are enabled. The rightmost indicators do not interf
 - LCINDICATOR
 - ICINDICATOR
 - GRAPH_SCREEN
-- FIRE SCREEN
-- CLOCK SCREEN
-- DATE SCREEN
+- FIRE_SCREEN
+- CLOCK_SCREEN
+- DATE_SCREEN
+- All ESP8266 item
 
 # Some examples of displays:
 
