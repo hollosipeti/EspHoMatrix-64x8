@@ -192,6 +192,7 @@ ehmtxv2:
   date_format: "%b.%d."
   show_seconds: false
 #  show_dow: false
+#  show_top_indicators: false
   default_font_id: default_font
   default_font_yoffset: 7
   special_font_id: special_font
