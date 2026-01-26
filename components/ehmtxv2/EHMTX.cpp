@@ -443,8 +443,8 @@ namespace esphome
     register_service(&EHMTX::set_solid_color, "set_solid_color", {"r", "g", "b"});
     register_service(&EHMTX::set_calendar_color, "set_calendar_color", {"r", "g", "b"});
 
-    register_service(&EHMTX::set_night_mode_on, "night_mode_on");
-    register_service(&EHMTX::set_night_mode_off, "night_mode_off");
+    // register_service(&EHMTX::set_night_mode_on, "night_mode_on");
+    // register_service(&EHMTX::set_night_mode_off, "night_mode_off");
 
     register_service(&EHMTX::set_weekday_accent_on, "weekday_accent_on");
     register_service(&EHMTX::set_weekday_accent_off, "weekday_accent_off");
