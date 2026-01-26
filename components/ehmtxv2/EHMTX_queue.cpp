@@ -357,8 +357,8 @@ if (this->pixels_ < width)
           this->config_->display->strftime(8 + xoffset, this->ypos() + yoffset, font, color_, display::TextAlign::BASELINE_LEFT, EHMTXv2_DATE_FORMAT, this->config_->clock->now());
 
           // 3. Idő kirajzolása (Jobb szélre igazítva)
-          // Jobbra igazítjuk a 58. pixelhez (így biztosan a jobb szélen lesz).
-          this->config_->display->strftime(58 + xoffset, this->ypos() + yoffset, font, color_, display::TextAlign::BASELINE_RIGHT, EHMTXv2_TIME_FORMAT, this->config_->clock->now());
+          // Jobbra igazítjuk a 57. pixelhez (így biztosan a jobb szélen lesz).
+          this->config_->display->strftime(57 + xoffset, this->ypos() + yoffset, font, color_, display::TextAlign::BASELINE_RIGHT, EHMTXv2_TIME_FORMAT, this->config_->clock->now());
 
           // 4. HÉT NAPJAI (DOW) KIRAJZOLÁSA
           // Ez a függvény rajzolja ki a kis csíkokat alulra.
