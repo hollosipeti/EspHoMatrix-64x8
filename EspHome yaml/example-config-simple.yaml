@@ -144,6 +144,21 @@ switch:
       lambda: |-
         id(rgb8x32)->set_display_off();
 
+# Night Mode witch
+  - platform: template
+    name: "$devicename Night Mode"
+    id: night_mode_switch
+    icon: "mdi:weather-night"
+    restore_mode: RESTORE_DEFAULT_OFF
+    lambda: |-
+      return id(rgb8x32)->night_mode;
+    turn_on_action:
+      lambda: |-
+        id(rgb8x32)->set_night_mode_on();
+    turn_off_action:
+      lambda: |-
+        id(rgb8x32)->set_night_mode_off();
+
 # Set time sensor NTP!
 time:
   - platform: sntp
