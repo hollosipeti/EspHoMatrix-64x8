@@ -92,7 +92,7 @@ number:
     id: screen_brightness
     min_value: 20
     max_value: 120    # at a higher value, it was too bright for me
-    step: 1
+    step: 2
     update_interval: 5s
     lambda: |-
       return id(rgb8x32)->get_brightness();
