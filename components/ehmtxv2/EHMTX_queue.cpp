@@ -143,7 +143,7 @@ namespace esphome
 #else
 if (this->pixels_ < width)
     {
-      // MÓDOSÍTÁS: Ha ikonos szöveg van, akkor BALRA zárjuk (mint az órát), ne középre
+      // Ha ikonos szöveg van, akkor BALRA zárjuk (mint az órát), ne középre
       if (this->mode == MODE_ICON_TEXT_SCREEN || this->mode == MODE_RAINBOW_ICON_TEXT_SCREEN) 
       {
         result = startx; 
@@ -347,21 +347,18 @@ if (this->pixels_ < width)
         {
           color_ = this->text_color;
           
-          // 1. Ikon kirajzolása (Bal szél: x=0)
+          // 1. Ikon kirajzolása
           if (this->icon != BLANKICON) {
              this->config_->display->image(0, this->ypos(), this->config_->icons[this->icon]);
           }
           
-          // 2. Dátum kirajzolása (Az ikon után)
-          // Balra igazítjuk, kb. a 8. pixeltől, hogy elférjen az ikon után.
+          // 2. Dátum kirajzolása Balra igazítjuk, kb. a 8. pixeltől
           this->config_->display->strftime(8 + xoffset, this->ypos() + yoffset, font, color_, display::TextAlign::BASELINE_LEFT, EHMTXv2_DATE_FORMAT, this->config_->clock->now());
 
-          // 3. Idő kirajzolása (Jobb szélre igazítva)
-          // Jobbra igazítjuk a 57. pixelhez (így biztosan a jobb szélen lesz).
+          // 3. Idő kirajzolása a 57. pixelhez (így biztosan a jobb szélen lesz).
           this->config_->display->strftime(57 + xoffset, this->ypos() + yoffset, font, color_, display::TextAlign::BASELINE_RIGHT, EHMTXv2_TIME_FORMAT, this->config_->clock->now());
 
           // 4. HÉT NAPJAI (DOW) KIRAJZOLÁSA
-          // Ez a függvény rajzolja ki a kis csíkokat alulra.
           // A "true" paraméter jelzi, hogy "small" módban vagyunk (van ikon), 
           // így eltolja a csíkokat, hogy ne lógjanak bele az ikonba.
           this->config_->draw_day_of_week(this->ypos(), true);
@@ -919,13 +916,10 @@ if (this->pixels_ < width)
                 // A szöveg színe az, amit beállítottál (pl. piros)
                 color_ = this->text_color;
             }
-
-            // --- INNEN UGYANAZ MINT AZ ALERT SCREEN, CSAK A SZÍNEK MÓDOSULTAK FENT ---
             
             this->config_->display->start_clipping(8, 0, 64, 8);
             
-            // Szöveg kirajzolása (Balra igazítást használunk a korábbi megbeszélés alapján)
-            // Mivel ez alert, használhatod a saját balra igazítós logikádat, vagy a standardot.
+            // Szöveg kirajzolása Balra igazítást használunk
             // Itt a standard draw_text-et hívom a módosított színnel:
             this->config_->draw_text(this->text, font, color_, this->xpos() + xoffset, this->ypos() + yoffset);
             
@@ -981,9 +975,9 @@ if (this->pixels_ < width)
     uint8_t startx = 0;
     uint16_t max_steps = 0;
     
-    // BIZTONSÁGI SZORZÓ: 1.15 = +15% időt adunk ráhagyásnak a lassulások kompenzálására.
-    // Ha még mindig levágja a nagyon hosszúakat, emeld 1.20-ra.
-    float safety_multiplier = 1.2; 
+    // BIZTONSÁGI SZORZÓ: 1.15 = +15% időt adunk
+    // Ha még mindig levágja a nagyon hosszúakat, emeld
+    float safety_multiplier = 1.27; 
 
     std::string text_ = text;
 #ifdef EHMTXv2_MULTICOLOR_TEXT
