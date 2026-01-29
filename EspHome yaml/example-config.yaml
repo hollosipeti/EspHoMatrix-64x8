@@ -90,7 +90,7 @@ number:
   - platform: template
     name: "$devicename Brightness"
     id: screen_brightness
-    min_value: 20
+    min_value: 16
     max_value: 120    # at a higher value, it was too bright for me
     step: 2
     update_interval: 5s
@@ -263,10 +263,10 @@ sensor:
     accuracy_decimals: 0
     filters:
       - calibrate_linear:
-          - 0.17 -> 20
+          - 0.17 -> 16
           - 2.4 -> 120
       - clamp:
-          min_value: 20     # equals the minimum value of number
+          min_value: 16     # equals the minimum value of number
           max_value: 120    # equals the maximum value of number
     on_value:
       then:
