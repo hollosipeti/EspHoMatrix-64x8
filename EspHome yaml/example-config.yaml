@@ -29,7 +29,7 @@ esphome:
   name: $devicename
   project:
     name: "LED.MATRIX"
-    version: "2026.V.1.0.stable"
+    version: "2026.V.1.1.stable"
   on_boot:
     - priority: 600.0
       then:
@@ -54,8 +54,6 @@ esp32:
   framework:
     type: esp-idf
     version: recommended
-#    advanced:
-#      ignore_efuse_custom_mac: true    
 
 # Enable logging
 logger:
