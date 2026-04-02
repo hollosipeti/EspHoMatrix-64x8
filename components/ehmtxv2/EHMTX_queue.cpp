@@ -977,7 +977,7 @@ if (this->pixels_ < width)
     
     // BIZTONSÁGI SZORZÓ: 1.15 = +15% időt adunk
     // Ha még mindig levágja a nagyon hosszúakat, emeld
-    float safety_multiplier = 1.27; 
+    float safety_multiplier = 1.22; 
 
     std::string text_ = text;
 #ifdef EHMTXv2_MULTICOLOR_TEXT
