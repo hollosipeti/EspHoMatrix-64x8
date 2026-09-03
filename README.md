@@ -1,7 +1,7 @@
 # EspHoMatrix-64x8 with ESP32
 ** Custom ESPHome configuration for 64x8 pixel LED matrix. Included the ESPHome yaml **
 
-!!!MAX ESPHome version 2026.3!!!
+Keeping up to date ESPHome 2026.8.1
 ### This is a modified and expanded version of the excellent [EspHoMaTriXv2](https://github.com/lubeda/EspHoMaTriXv2) library.
 While the original was designed for standard 8x32 clocks, this version is specifically optimized for **double-width (64x8) displays**, allowing for more information, and better aesthetics.
 
