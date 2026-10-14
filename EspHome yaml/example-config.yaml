@@ -1,5 +1,5 @@
 # CHANGE LOG: 
-# 260901 keeping up to date ESPHome 2026.9.1
+# 261014 keeping up to date ESPHome 2026.9.1
 ###    This version is based on EspHoMaTriX version 2 (EHMTXv2) by LuBeDa. Thanks for that! That modified version is an 8x64 led matrix.    ###
 ###    rmt_led_strip and esp-idf. I used the latest ingredients. And I cleaned out the components that were unnecessary for me.   ###
 ###    This YAML contains Hungarian language translations!   ###
