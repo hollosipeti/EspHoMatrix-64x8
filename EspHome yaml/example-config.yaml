@@ -376,7 +376,7 @@ ehmtxv2:
     - id: weather_cloudy_night
       lameid: 12195
     - id: humidity_icon
-      lameid: 53392
+      lameid: 53330
     - id: temperature
       lameid: 2056
 
